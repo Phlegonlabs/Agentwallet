@@ -1,0 +1,121 @@
+---
+const steps = [
+  {
+    num: "1",
+    title: "Install",
+    desc: "Install AgentWallet globally via npm.",
+    cmd: "npm install -g @phlegonlabs/agentwallet",
+    note: "No root? Use: npx @phlegonlabs/agentwallet <command>",
+  },
+  {
+    num: "2",
+    title: "Initialize vault",
+    desc: "Set your master password. This encrypts all private keys. Choose a strong password — you'll need it to unlock the vault and export keys.",
+    cmd: "agentwallet init",
+    output: [
+      "Set your master password: ********",
+      "Confirm master password: ********",
+      '<span class="text-emerald-400">&#10003; Vault initialized at ~/.agentwallet/</span>',
+    ],
+  },
+  {
+    num: "3",
+    title: "Create wallets",
+    desc: "Create wallets on any supported chain, or all 12 at once.",
+    cmd: "agentwallet create --chain all",
+    output: [
+      '<span class="text-emerald-400">&#10003; 12 wallets created:</span>',
+      "   Ethereum     0x1a2b...9f3e",
+      "   Polygon      0x1a2b...9f3e",
+      "   Solana       7xKq...mN2v",
+      '   <span class="text-slate-600">...</span>',
+    ],
+  },
+  {
+    num: "4",
+    title: "Unlock & get token",
+    desc: "Unlock the vault with your master password. You get a temporary session token (expires in 1 hour) — give this to your AI agent.",
+    cmd: "agentwallet unlock --json",
+    output: [
+      "Enter master password: ********",
+      '{',
+      '  <span class="text-emerald-400">"token"</span>: <span class="text-amber-300">"awlt_a8f3...x92k"</span>,',
+      '  <span class="text-emerald-400">"expiresAt"</span>: <span class="text-amber-300">"2026-03-15T11:30:00Z"</span>',
+      '}',
+    ],
+  },
+  {
+    num: "5",
+    title: "Agent is ready",
+    desc: "Your agent can now use the token to manage wallets, sign transactions, and make payments. No password needed.",
+    cmd: "AGENTWALLET_TOKEN=awlt_a8f3...x92k agentwallet list --json",
+    output: [
+      '[{"address":"0x1a2b...","chainName":"Ethereum"}, ...]',
+    ],
+  },
+];
+---
+
+<section id="getting-started" class="py-20 px-6 bg-slate-50">
+  <div class="max-w-3xl mx-auto">
+    <h2 class="text-2xl font-bold text-center text-slate-900 mb-3">Getting started</h2>
+    <p class="text-center text-slate-500 mb-14 max-w-xl mx-auto">From install to agent-ready in 5 steps. Your master password stays with you — your agent only gets a temporary token.</p>
+
+    <div class="space-y-6">
+      {steps.map((step) => (
+        <div class="bg-white rounded-xl border border-slate-100 overflow-hidden">
+          <!-- Step header -->
+          <div class="flex items-start gap-4 p-6 pb-4">
+            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center text-sm font-bold">
+              {step.num}
+            </div>
+            <div>
+              <h3 class="font-semibold text-slate-900">{step.title}</h3>
+              <p class="text-sm text-slate-500 mt-1">{step.desc}</p>
+            </div>
+          </div>
+
+          <!-- Terminal block -->
+          <div class="mx-6 mb-6 bg-slate-950 rounded-xl overflow-hidden">
+            <div class="flex items-center gap-2 px-4 py-2 bg-slate-900/50 border-b border-slate-800">
+              <div class="w-2.5 h-2.5 rounded-full bg-slate-700"></div>
+              <div class="w-2.5 h-2.5 rounded-full bg-slate-700"></div>
+              <div class="w-2.5 h-2.5 rounded-full bg-slate-700"></div>
+            </div>
+            <div class="p-4 font-mono text-sm">
+              <div class="flex items-start gap-2 text-slate-400">
+                <span class="text-emerald-400 flex-shrink-0">$</span>
+                <span class="text-white break-all">{step.cmd}</span>
+              </div>
+              {step.output && (
+                <div class="mt-2 text-slate-500 pl-4 space-y-0.5">
+                  {step.output.map((line) => (
+                    <p set:html={line} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Note below terminal */}
+          {step.note && (
+            <div class="mx-6 mb-6 -mt-2">
+              <p class="text-xs text-slate-400">{step.note}</p>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+
+    <!-- Security reminder -->
+    <div class="mt-8 p-5 rounded-xl bg-white border border-slate-100 flex items-start gap-3">
+      <div class="flex-shrink-0 w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 11h18v11a2 2 0 01-2 2H5a2 2 0 01-2-2V11zm4 0V7a5 5 0 0110 0v4" /></svg>
+      </div>
+      <div>
+        <h3 class="font-semibold text-slate-900 text-sm">Your keys, your control</h3>
+        <p class="text-sm text-slate-500 mt-1">Agents can create wallets and sign transactions with the session token, but <span class="font-medium text-slate-700">exporting private keys or viewing your mnemonic requires your master password and a real terminal</span>. No agent can access them — this is enforced at the code level.</p>
+      </div>
+    </div>
+  </div>
+</section>
