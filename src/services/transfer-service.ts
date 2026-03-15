@@ -1,11 +1,9 @@
 import {
-  createWalletClient,
   createPublicClient,
   http,
   parseEther,
   type Chain,
 } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
 import {
   mainnet,
   polygon,
@@ -18,15 +16,16 @@ import {
   xLayer,
   scroll,
 } from "viem/chains";
-import { Connection, PublicKey, SystemProgram, Transaction, Keypair, sendAndConfirmTransaction } from "@solana/web3.js";
-import { WalletContractV4 } from "@ton/ton";
-import { keyPairFromSeed } from "@ton/crypto";
-import { internal } from "@ton/core";
+import { Connection, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { TonClient } from "@ton/ton";
-import { listWallets, exportMnemonic } from "./wallet-service.ts";
-import { retrievePrivateKey } from "./vault-service.ts";
-import { toHex } from "../lib/index.ts";
-import type { Result } from "../types/index.ts";
+import { Address as TonAddress } from "@ton/core";
+import { listWallets } from "./wallet-service.ts";
+import { signTransaction } from "./signing-service.ts";
+import type {
+  Result,
+  UnsignedTransaction,
+  SignedTransaction,
+} from "../types/index.ts";
 import { ok, err } from "../types/index.ts";
 
 /** Map chain ID strings to viem chain objects */
@@ -68,11 +67,16 @@ export interface TransferResult {
   amount: string;
 }
 
-/** Transfer native token on any supported chain */
-export async function transfer(params: TransferParams): Promise<Result<TransferResult>> {
-  const { from, to, amount, masterPassword } = params;
-
-  // Find the wallet
+/**
+ * Build an unsigned transaction for a native token transfer.
+ * This step queries on-chain data (nonce, blockhash, seqno) but
+ * never touches private keys.
+ */
+export async function buildTransaction(
+  from: string,
+  to: string,
+  amount: string
+): Promise<Result<UnsignedTransaction>> {
   const wallets = listWallets();
   const wallet = wallets.find(
     (w) => w.address.toLowerCase() === from.toLowerCase()
@@ -81,124 +85,134 @@ export async function transfer(params: TransferParams): Promise<Result<TransferR
     return err(new Error(`Wallet not found: ${from}`));
   }
 
-  // Decrypt private key
-  const keyResult = await retrievePrivateKey(wallet.id, masterPassword);
-  if (!keyResult.ok) {
-    return err(new Error("Wrong password or corrupted vault."));
-  }
-
   try {
     switch (wallet.chainType) {
       case "evm":
-        return await transferEVM(wallet.chainId, to, amount, keyResult.value);
-      case "solana":
-        return await transferSolana(to, amount, keyResult.value);
-      case "ton":
-        return await transferTON(from, to, amount, keyResult.value);
+        return ok({
+          chainType: "evm",
+          chainId: wallet.chainId,
+          to: to as `0x${string}`,
+          value: amount,
+        });
+      case "solana": {
+        const connection = new Connection(SOLANA_RPC, "confirmed");
+        const blockhash = await connection.getLatestBlockhash();
+        const lamports = Math.round(parseFloat(amount) * LAMPORTS_PER_SOL);
+        return ok({
+          chainType: "solana",
+          to,
+          lamports,
+          recentBlockhash: blockhash.blockhash,
+          feePayer: from,
+        });
+      }
+      case "ton": {
+        const client = new TonClient({ endpoint: TON_RPC });
+        const tonAddress = TonAddress.parse(from);
+        // We need to get seqno from the contract — requires opening the wallet
+        // For now, we fetch it using generic getSeqno approach
+        const contractState = await client.runMethod(tonAddress, "seqno");
+        const seqno = contractState.stack.readNumber();
+        return ok({
+          chainType: "ton",
+          to,
+          value: amount,
+          bounce: false,
+          seqno,
+        });
+      }
       default:
         return err(new Error(`Unsupported chain type: ${wallet.chainType}`));
     }
   } catch (e) {
-    return err(new Error(`Transfer failed: ${e instanceof Error ? e.message : String(e)}`));
+    return err(
+      new Error(
+        `Failed to build transaction: ${e instanceof Error ? e.message : String(e)}`
+      )
+    );
   }
 }
 
-/** EVM native transfer (ETH, MATIC, BNB, etc.) */
-async function transferEVM(
-  chainId: string,
-  to: string,
-  amount: string,
-  privateKey: Uint8Array
-): Promise<Result<TransferResult>> {
-  const chain = VIEM_CHAINS[chainId];
-  if (!chain) {
-    return err(new Error(`No RPC config for chain: ${chainId}`));
+/**
+ * Broadcast a signed transaction to the network.
+ * No private keys involved — only the serialized signed tx.
+ */
+export async function broadcastTransaction(
+  signed: SignedTransaction
+): Promise<Result<string>> {
+  try {
+    switch (signed.chainType) {
+      case "evm": {
+        const chain = VIEM_CHAINS[signed.chainId!];
+        if (!chain) {
+          return err(new Error(`No RPC config for chain: ${signed.chainId}`));
+        }
+        const client = createPublicClient({ chain, transport: http() });
+        const txHash = await client.sendRawTransaction({
+          serializedTransaction: signed.serialized as `0x${string}`,
+        });
+        return ok(txHash);
+      }
+      case "solana": {
+        const connection = new Connection(SOLANA_RPC, "confirmed");
+        const txBuffer = Buffer.from(signed.serialized, "base64");
+        const txHash = await connection.sendRawTransaction(txBuffer);
+        return ok(txHash);
+      }
+      case "ton": {
+        const client = new TonClient({ endpoint: TON_RPC });
+        const boc = Buffer.from(signed.serialized, "base64");
+        // sendFile expects a Cell, but we can use the raw API
+        await client.sendFile(boc);
+        return ok(`ton_boc_${Date.now()}`);
+      }
+      default:
+        return err(new Error(`Unsupported chain type: ${signed.chainType}`));
+    }
+  } catch (e) {
+    return err(
+      new Error(
+        `Broadcast failed: ${e instanceof Error ? e.message : String(e)}`
+      )
+    );
   }
-
-  const hexKey = `0x${Buffer.from(privateKey).toString("hex")}` as `0x${string}`;
-  const account = privateKeyToAccount(hexKey);
-
-  const walletClient = createWalletClient({
-    account,
-    chain,
-    transport: http(),
-  });
-
-  const txHash = await walletClient.sendTransaction({
-    to: to as `0x${string}`,
-    value: parseEther(amount),
-  });
-
-  return ok({
-    txHash,
-    chain: chainId,
-    from: account.address,
-    to,
-    amount,
-  });
 }
 
-/** Solana native transfer (SOL) */
-async function transferSolana(
-  to: string,
-  amount: string,
-  privateKey: Uint8Array
+/**
+ * High-level transfer: build → sign → broadcast.
+ * transfer-service no longer touches private keys directly.
+ */
+export async function transfer(
+  params: TransferParams
 ): Promise<Result<TransferResult>> {
-  const connection = new Connection(SOLANA_RPC, "confirmed");
-  const keypair = Keypair.fromSecretKey(privateKey);
-  const lamports = Math.round(parseFloat(amount) * 1e9);
+  const { from, to, amount, masterPassword } = params;
 
-  const transaction = new Transaction().add(
-    SystemProgram.transfer({
-      fromPubkey: keypair.publicKey,
-      toPubkey: new PublicKey(to),
-      lamports,
-    })
+  // Step 1: Build unsigned transaction
+  const buildResult = await buildTransaction(from, to, amount);
+  if (!buildResult.ok) return buildResult;
+
+  // Step 2: Sign via signing oracle
+  const signResult = await signTransaction({
+    walletAddress: from,
+    transaction: buildResult.value,
+    masterPassword,
+  });
+  if (!signResult.ok) return signResult;
+
+  // Step 3: Broadcast
+  const broadcastResult = await broadcastTransaction(
+    signResult.value.signedTransaction
+  );
+  if (!broadcastResult.ok) return broadcastResult;
+
+  const wallets = listWallets();
+  const wallet = wallets.find(
+    (w) => w.address.toLowerCase() === from.toLowerCase()
   );
 
-  const txHash = await sendAndConfirmTransaction(connection, transaction, [keypair]);
-
   return ok({
-    txHash,
-    chain: "solana",
-    from: keypair.publicKey.toBase58(),
-    to,
-    amount,
-  });
-}
-
-/** TON native transfer (TON) */
-async function transferTON(
-  from: string,
-  to: string,
-  amount: string,
-  privateKey: Uint8Array
-): Promise<Result<TransferResult>> {
-  const client = new TonClient({ endpoint: TON_RPC });
-
-  // Reconstruct keypair from secret key (first 32 bytes = seed)
-  const seed = privateKey.slice(0, 32);
-  const keypair = keyPairFromSeed(Buffer.from(seed));
-
-  const walletContract = WalletContractV4.create({ workchain: 0, publicKey: keypair.publicKey });
-  const contract = client.open(walletContract);
-  const seqno = await contract.getSeqno();
-
-  await contract.sendTransfer({
-    seqno,
-    secretKey: keypair.secretKey,
-    messages: [
-      internal({
-        to,
-        value: amount,
-        bounce: false,
-      }),
-    ],
-  });
-
-  return ok({
-    txHash: `ton_seqno_${seqno}`,
-    chain: "ton",
+    txHash: broadcastResult.value,
+    chain: wallet?.chainId ?? "unknown",
     from,
     to,
     amount,

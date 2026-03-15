@@ -20,4 +20,4 @@ export {
   secureDelete,
   exists,
 } from "./file-system.ts";
-export { zeroize, toHex, toBase58 } from "./memory-guard.ts";
+export { zeroize, withSecureScope, toHex, toBase58 } from "./memory-guard.ts";

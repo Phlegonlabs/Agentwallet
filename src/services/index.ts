@@ -9,10 +9,15 @@ export {
   createWallet,
   createAllWallets,
   listWallets,
-  exportPrivateKey,
-  exportMnemonic,
   labelWallet,
   deleteWallet,
 } from "./wallet-service.ts";
-export { transfer } from "./transfer-service.ts";
+export { signTransaction } from "./signing-service.ts";
+export { getBalance } from "./balance-service.ts";
+export type { BalanceResult } from "./balance-service.ts";
+export {
+  transfer,
+  buildTransaction,
+  broadcastTransaction,
+} from "./transfer-service.ts";
 export type { TransferParams, TransferResult } from "./transfer-service.ts";
