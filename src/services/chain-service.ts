@@ -1,4 +1,4 @@
-import { deriveEVMWallet, deriveSolanaWallet } from "../lib/index.ts";
+import { deriveEVMWallet, deriveSolanaWallet, deriveTONWallet } from "../lib/index.ts";
 import type { DerivedWallet } from "../lib/index.ts";
 import type { SupportedChain } from "../types/index.ts";
 
@@ -13,6 +13,8 @@ export function generateWallet(
       return deriveEVMWallet(mnemonic, hdIndex);
     case "solana":
       return deriveSolanaWallet(mnemonic, hdIndex);
+    case "ton":
+      return deriveTONWallet(mnemonic, hdIndex);
     default:
       throw new Error(`Unsupported chain type: ${chain.type}`);
   }

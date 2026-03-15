@@ -7,11 +7,11 @@
 ## Current Summary
 
 **Current Phase**: EXECUTING
-**Current Milestone**: M1 — CLI Core and Encrypted Storage
-**Current Worktree**: `../agentwallet-m1`
-**Current Task**: T010 — npm publish configuration and README (IN_PROGRESS)
-**Overall Progress**: [███████░░░] 9/13 Tasks (69%)
-**Last Updated**: 2026-03-15T04:37:12.218Z
+**Current Milestone**: M5 — Skill/Agent API
+**Current Branch**: `feat/skill-agent-api`
+**Current Task**: T014 — Session Token + JSON Output + OpenClaw Skill
+**Overall Progress**: M1 ✅ M2 ✅ M3 ✅ M4 ✅ M5 🟡
+**Last Updated**: 2026-03-15
 
 ---
 

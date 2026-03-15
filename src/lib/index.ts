@@ -10,6 +10,7 @@ export {
   generateMnemonic,
   deriveEVMWallet,
   deriveSolanaWallet,
+  deriveTONWallet,
 } from "./key-derivation.ts";
 export type { DerivedWallet } from "./key-derivation.ts";
 export {
@@ -18,5 +19,7 @@ export {
   secureRead,
   secureDelete,
   exists,
+  hardenPermissions,
 } from "./file-system.ts";
-export { zeroize, toHex, toBase58 } from "./memory-guard.ts";
+export { zeroize, withSecureScope, toHex, toBase58 } from "./memory-guard.ts";
+export { encodeERC20Transfer, buildSPLTransferInstructions } from "./token-encoding.ts";

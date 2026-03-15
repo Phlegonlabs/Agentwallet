@@ -26,3 +26,7 @@ export function getKeyFilePath(walletId: string): string {
 export function getBackupPath(timestamp: string): string {
   return join(getBaseDir(), `backup-${timestamp}.enc`);
 }
+
+export function getSessionPath(): string {
+  return join(getBaseDir(), ".session");
+}

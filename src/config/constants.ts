@@ -11,6 +11,7 @@ export const WALLETS_FILE_MODE = 0o600;
 /** HD derivation paths */
 export const EVM_HD_PATH = "m/44'/60'/0'/0";
 export const SOLANA_HD_PATH = "m/44'/501'/0'/0'";
+export const TON_HD_PATH = "m/44'/607'";
 
 /** Vault format version */
 export const VAULT_VERSION = 1;

@@ -1,4 +1,4 @@
-export type ChainType = "evm" | "solana";
+export type ChainType = "evm" | "solana" | "ton";
 
 export interface SupportedChain {
   /** Display name: "Ethereum", "Polygon", "Solana" */

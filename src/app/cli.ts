@@ -3,19 +3,25 @@ import { Command } from "commander";
 import { password, select, confirm, input } from "@inquirer/prompts";
 import {
   initVault,
-  isVaultInitialized,
   createWallet,
   createAllWallets,
   listWallets,
-  exportPrivateKey,
-  exportMnemonic,
   labelWallet,
   deleteWallet,
+  transfer,
+  signTransaction,
+  getBalance,
+  unlock,
+  lock,
+  signX402Payment,
 } from "../services/index.ts";
+import { exportPrivateKey, exportMnemonic } from "../services/wallet-service.ts";
 import { SUPPORTED_CHAINS } from "../config/index.ts";
+import { backupAction, restoreAction } from "./backup-restore.ts";
+import { jsonOut } from "./json-output.ts";
+import { fail, requireVault, getAuth, readJsonInput } from "./cli-helpers.ts";
 
 const program = new Command();
-
 program
   .name("agentwallet")
   .description("Multi-chain crypto wallet CLI — create, encrypt, and manage wallets securely")
@@ -25,171 +31,202 @@ program
 program
   .command("init")
   .description("Initialize the vault with a master password")
-  .action(async () => {
-    if (isVaultInitialized()) {
-      console.log("Vault already initialized.");
-      return;
-    }
+  .option("--json", "Output as JSON")
+  .action(async (opts: { json?: boolean }) => {
+    const mp = await password({ message: "Set your master password:" });
+    const cp = await password({ message: "Confirm master password:" });
+    if (mp !== cp) fail("Passwords do not match", opts.json);
+    if (mp.length < 8) fail("Password must be at least 8 characters", opts.json);
+    const r = await initVault(mp);
+    if (!r.ok) fail(r.error.message, opts.json);
+    if (opts.json) return jsonOut({ status: "initialized", path: "~/.agentwallet/" });
+    process.stdout.write("Vault initialized at ~/.agentwallet/\n");
+    process.stdout.write("   Your master password encrypts all private keys.\n");
+  });
 
-    const masterPassword = await password({
-      message: "Set your master password:",
-    });
-    const confirmPassword = await password({
-      message: "Confirm master password:",
-    });
+// ─── unlock ──────────────────────────────────────────
+program
+  .command("unlock")
+  .description("Unlock vault and get a session token for non-interactive use")
+  .option("--ttl <seconds>", "Session TTL in seconds (default: 3600, max: 86400)")
+  .option("--json", "Output as JSON")
+  .action(async (opts: { ttl?: string; json?: boolean }) => {
+    requireVault(opts.json);
+    const mp = await password({ message: "Enter master password:" });
+    const ttl = opts.ttl ? parseInt(opts.ttl, 10) : undefined;
+    const r = await unlock(mp, ttl);
+    if (!r.ok) fail(r.error.message, opts.json);
+    if (opts.json) return jsonOut(r.value);
+    process.stdout.write(`\nSession token: ${r.value.token}\n`);
+    process.stdout.write(`Expires at:    ${r.value.expiresAt}\n\n`);
+    process.stdout.write("Use with: agentwallet <command> --token <token>\n");
+    process.stdout.write("Or set:   export AGENTWALLET_TOKEN=<token>\n");
+  });
 
-    if (masterPassword !== confirmPassword) {
-      console.error("Passwords do not match.");
-      process.exit(1);
-    }
-
-    if (masterPassword.length < 8) {
-      console.error("Password must be at least 8 characters.");
-      process.exit(1);
-    }
-
-    const result = await initVault(masterPassword);
-    if (!result.ok) {
-      console.error(result.error.message);
-      process.exit(1);
-    }
-
-    console.log("✅ Vault initialized at ~/.agentwallet/");
-    console.log("   Your master password encrypts all private keys.");
-    console.log("   ⚠️  If you lose it, your keys cannot be recovered.");
+// ─── lock ────────────────────────────────────────────
+program
+  .command("lock")
+  .description("Lock vault and destroy the active session")
+  .option("--json", "Output as JSON")
+  .action((opts: { json?: boolean }) => {
+    const r = lock();
+    if (!r.ok) fail(r.error.message, opts.json);
+    if (opts.json) return jsonOut({ status: "locked" });
+    process.stdout.write("Session destroyed. Vault locked.\n");
   });
 
 // ─── create ────────────────────────────────────────
 program
   .command("create")
   .description("Create a new wallet")
-  .option("-c, --chain <chain>", "Chain name (ethereum, polygon, bsc, base, arbitrum, optimism, avalanche, fantom, solana, all)")
+  .option("-c, --chain <chain>", "Chain name or 'all'")
   .option("-n, --count <count>", "Number of wallets to create", "1")
-  .action(async (opts: { chain?: string; count: string }) => {
-    if (!isVaultInitialized()) {
-      console.error("Vault not initialized. Run 'agentwallet init' first.");
-      process.exit(1);
-    }
-
-    const masterPassword = await password({
-      message: "Enter master password:",
-    });
-
+  .option("--token <token>", "Session token (alternative to password)")
+  .option("--json", "Output as JSON")
+  .action(async (opts: { chain?: string; count: string; token?: string; json?: boolean }) => {
+    requireVault(opts.json);
+    const auth = await getAuth(opts);
     const count = parseInt(opts.count, 10);
-    if (isNaN(count) || count < 1) {
-      console.error("Invalid count. Must be a positive integer.");
-      process.exit(1);
-    }
+    if (isNaN(count) || count < 1) fail("Invalid count", opts.json);
 
-    // Determine chain selection
     let chainId = opts.chain;
-    if (!chainId) {
+    if (!chainId && !opts.json) {
       chainId = await select({
         message: "Select chain:",
         choices: [
           ...SUPPORTED_CHAINS.map((c) => ({ name: c.name, value: c.id })),
-          { name: "All chains (EVM + Solana)", value: "all" },
+          { name: "All chains (EVM + Solana + TON)", value: "all" },
         ],
       });
+    } else if (!chainId) {
+      fail("--chain is required with --json", opts.json);
     }
 
+    const created: Array<{ address: string; chainName: string; chainId: string }> = [];
     for (let i = 0; i < count; i++) {
       if (chainId === "all") {
-        const result = await createAllWallets(masterPassword);
-        if (!result.ok) {
-          console.error(result.error.message);
-          process.exit(1);
-        }
-        console.log(`\n✅ Wallet group ${i + 1}/${count} created:`);
-        for (const w of result.value) {
-          console.log(`   ${w.chainName.padEnd(12)} ${w.address}`);
+        const r = await createAllWallets(auth);
+        if (!r.ok) fail(r.error.message, opts.json);
+        for (const w of r.value) created.push({ address: w.address, chainName: w.chainName, chainId: w.chainId });
+        if (!opts.json) {
+          process.stdout.write(`\nWallet group ${i + 1}/${count} created:\n`);
+          for (const w of r.value) process.stdout.write(`   ${w.chainName.padEnd(12)} ${w.address}\n`);
         }
       } else {
-        const result = await createWallet(chainId, masterPassword);
-        if (!result.ok) {
-          console.error(result.error.message);
-          process.exit(1);
+        const r = await createWallet(chainId!, auth);
+        if (!r.ok) fail(r.error.message, opts.json);
+        created.push({ address: r.value.address, chainName: r.value.chainName, chainId: r.value.chainId });
+        if (!opts.json) {
+          process.stdout.write(`\n${r.value.chainName} wallet ${i + 1}/${count}:\n   Address: ${r.value.address}\n`);
         }
-        console.log(`\n✅ ${result.value.chainName} wallet ${i + 1}/${count} created:`);
-        console.log(`   Address: ${result.value.address}`);
       }
     }
-
-    console.log("\n   Private keys encrypted and stored in ~/.agentwallet/vault/");
+    if (opts.json) return jsonOut(created);
+    process.stdout.write("\n   Private keys encrypted and stored in ~/.agentwallet/vault/\n");
   });
 
 // ─── list ──────────────────────────────────────────
 program
   .command("list")
   .description("List all wallets")
-  .action(() => {
+  .option("--json", "Output as JSON")
+  .action((opts: { json?: boolean }) => {
     const wallets = listWallets();
+    if (opts.json) {
+      return jsonOut(wallets.map((w) => ({
+        address: w.address, chainName: w.chainName, chainType: w.chainType,
+        chainId: w.chainId, label: w.label ?? null,
+      })));
+    }
     if (wallets.length === 0) {
-      console.log("No wallets found. Run 'agentwallet create' to create one.");
+      process.stdout.write("No wallets found. Run 'agentwallet create' to create one.\n");
       return;
     }
-
-    console.log(`\n  Found ${wallets.length} wallet(s):\n`);
+    process.stdout.write(`\n  Found ${wallets.length} wallet(s):\n\n`);
     for (const w of wallets) {
       const label = w.label ? ` [${w.label}]` : "";
       const date = new Date(w.createdAt).toLocaleDateString();
-      console.log(`  ${w.chainName.padEnd(12)} ${w.address}${label}  (${date})`);
+      process.stdout.write(`  ${w.chainName.padEnd(12)} ${w.address}${label}  (${date})\n`);
     }
-    console.log();
+    process.stdout.write("\n");
   });
 
-// ─── export ────────────────────────────────────────
+// ─── export (TTY-gated, no --token) ────────────────
 program
   .command("export <address>")
-  .description("Export a wallet's private key")
+  .description("Export a wallet's private key (interactive terminal only)")
   .action(async (address: string) => {
-    const masterPassword = await password({
-      message: "Enter master password:",
-    });
-
-    const result = await exportPrivateKey(address, masterPassword);
-    if (!result.ok) {
-      console.error(result.error.message);
-      process.exit(1);
-    }
-
-    console.log("\n  ⚠️  Private key (will clear in 10 seconds):\n");
-    console.log(`  ${result.value}`);
-
-    // Auto-clear after 10 seconds
+    if (!process.stdin.isTTY) fail("'export' requires an interactive terminal (TTY)");
+    const mp = await password({ message: "Enter master password:" });
+    const r = await exportPrivateKey(address, mp);
+    if (!r.ok) fail(r.error.message);
+    process.stdout.write("\n  Private key (will clear in 10 seconds):\n\n");
+    process.stdout.write(`  ${r.value}\n`);
     setTimeout(() => {
       process.stdout.write("\x1b[2A\x1b[2K\x1b[1B\x1b[2K\x1b[1A");
-      console.log("  [Private key cleared from terminal]");
+      process.stdout.write("  [Private key cleared from terminal]\n");
     }, 10_000);
-
-    // Keep process alive for the timeout
     await new Promise((resolve) => setTimeout(resolve, 11_000));
   });
 
-// ─── mnemonic ──────────────────────────────────────
+// ─── mnemonic (TTY-gated, no --token) ────────────────
 program
   .command("mnemonic")
-  .description("Display your mnemonic phrase")
+  .description("Display your mnemonic phrase (interactive terminal only)")
   .action(async () => {
-    const masterPassword = await password({
-      message: "Enter master password:",
-    });
-
-    const result = await exportMnemonic(masterPassword);
-    if (!result.ok) {
-      console.error(result.error.message);
-      process.exit(1);
-    }
-
-    console.log("\n  ⚠️  Mnemonic phrase (will clear in 10 seconds):\n");
-    console.log(`  ${result.value}`);
-
+    if (!process.stdin.isTTY) fail("'mnemonic' requires an interactive terminal (TTY)");
+    const mp = await password({ message: "Enter master password:" });
+    const r = await exportMnemonic(mp);
+    if (!r.ok) fail(r.error.message);
+    process.stdout.write("\n  Mnemonic phrase (will clear in 10 seconds):\n\n");
+    process.stdout.write(`  ${r.value}\n`);
     setTimeout(() => {
       process.stdout.write("\x1b[2A\x1b[2K\x1b[1B\x1b[2K\x1b[1A");
-      console.log("  [Mnemonic cleared from terminal]");
+      process.stdout.write("  [Mnemonic cleared from terminal]\n");
     }, 10_000);
-
     await new Promise((resolve) => setTimeout(resolve, 11_000));
+  });
+
+// ─── sign ─────────────────────────────────────────
+program
+  .command("sign")
+  .description("Sign an unsigned transaction (JSON from stdin or --tx flag)")
+  .option("--tx <json>", "Unsigned transaction as JSON string")
+  .option("--token <token>", "Session token (alternative to password)")
+  .option("--json", "Output as JSON")
+  .action(async (opts: { tx?: string; token?: string; json?: boolean }) => {
+    requireVault(opts.json);
+    let txJson = await readJsonInput(opts.tx);
+    if (!txJson) txJson = await input({ message: "Paste unsigned transaction JSON:" });
+
+    let parsed: { walletAddress: string; transaction: unknown };
+    try { parsed = JSON.parse(txJson); } catch { fail("Invalid JSON input", opts.json); }
+    if (!parsed!.walletAddress || !parsed!.transaction) {
+      fail('JSON must contain "walletAddress" and "transaction" fields', opts.json);
+    }
+
+    const auth = await getAuth(opts);
+    const r = await signTransaction({
+      walletAddress: parsed!.walletAddress,
+      transaction: parsed!.transaction as import("../types/index.ts").UnsignedTransaction,
+      masterPassword: auth,
+    });
+    if (!r.ok) fail(r.error.message, opts.json);
+    jsonOut(r.value);
+  });
+
+// ─── balance ──────────────────────────────────────
+program
+  .command("balance <address>")
+  .description("Query on-chain balance for a wallet (no private key needed)")
+  .option("--json", "Output as JSON")
+  .action(async (address: string, opts: { json?: boolean }) => {
+    const r = await getBalance(address);
+    if (!r.ok) fail(r.error.message, opts.json);
+    if (opts.json) return jsonOut(r.value);
+    process.stdout.write(
+      `\n  ${r.value.address}\n  Balance: ${r.value.balance} ${r.value.symbol}\n  Chain:   ${r.value.chainId}\n\n`
+    );
   });
 
 // ─── label ─────────────────────────────────────────
@@ -197,12 +234,9 @@ program
   .command("label <address> <name>")
   .description("Set a label for a wallet")
   .action((address: string, name: string) => {
-    const result = labelWallet(address, name);
-    if (!result.ok) {
-      console.error(result.error.message);
-      process.exit(1);
-    }
-    console.log(`✅ Label "${name}" set for ${result.value.chainName} wallet ${address}`);
+    const r = labelWallet(address, name);
+    if (!r.ok) fail(r.error.message);
+    process.stdout.write(`Label "${name}" set for ${r.value.chainName} wallet ${address}\n`);
   });
 
 // ─── delete ────────────────────────────────────────
@@ -211,116 +245,63 @@ program
   .description("Securely delete a wallet")
   .action(async (address: string) => {
     const wallets = listWallets();
-    const wallet = wallets.find(
-      (w) => w.address.toLowerCase() === address.toLowerCase()
+    const w = wallets.find((w) => w.address.toLowerCase() === address.toLowerCase());
+    if (!w) fail(`Wallet not found: ${address}`);
+    const ok = await confirm({ message: `Delete ${w!.chainName} wallet ${address}? This cannot be undone.`, default: false });
+    if (!ok) { process.stdout.write("Cancelled.\n"); return; }
+    const r = deleteWallet(address);
+    if (!r.ok) fail(r.error.message);
+    process.stdout.write(`Wallet ${address} securely deleted.\n`);
+  });
+
+// ─── transfer ─────────────────────────────────────
+program
+  .command("transfer")
+  .description("Transfer native tokens (ETH, SOL, TON, etc.)")
+  .requiredOption("-f, --from <address>", "Sender wallet address")
+  .requiredOption("-t, --to <address>", "Recipient address")
+  .requiredOption("-a, --amount <amount>", "Amount to send (e.g. 0.01)")
+  .option("--token <token>", "Session token (alternative to password)")
+  .option("--json", "Output as JSON")
+  .action(async (opts: { from: string; to: string; amount: string; token?: string; json?: boolean }) => {
+    requireVault(opts.json);
+    const auth = await getAuth(opts);
+    if (!opts.json) {
+      const c = await confirm({ message: `Send ${opts.amount} from ${opts.from} to ${opts.to}?`, default: false });
+      if (!c) { process.stdout.write("Cancelled.\n"); return; }
+      process.stdout.write("Building, signing, and broadcasting...\n");
+    }
+    const r = await transfer({ from: opts.from, to: opts.to, amount: opts.amount, masterPassword: auth });
+    if (!r.ok) fail(r.error.message, opts.json);
+    if (opts.json) return jsonOut(r.value);
+    process.stdout.write(
+      `\nTransfer complete!\n   Chain:   ${r.value.chain}\n   From:    ${r.value.from}\n` +
+      `   To:      ${r.value.to}\n   Amount:  ${r.value.amount}\n   Tx Hash: ${r.value.txHash}\n`
     );
-    if (!wallet) {
-      console.error(`Wallet not found: ${address}`);
-      process.exit(1);
-    }
-
-    const confirmed = await confirm({
-      message: `Delete ${wallet.chainName} wallet ${address}? This cannot be undone.`,
-      default: false,
-    });
-
-    if (!confirmed) {
-      console.log("Cancelled.");
-      return;
-    }
-
-    const result = deleteWallet(address);
-    if (!result.ok) {
-      console.error(result.error.message);
-      process.exit(1);
-    }
-    console.log(`✅ Wallet ${address} securely deleted.`);
   });
 
-// ─── backup ────────────────────────────────────────
+// ─── x402-sign ───────────────────────────────────────
 program
-  .command("backup")
-  .description("Export an encrypted backup of all wallets")
-  .action(async () => {
-    const masterPassword = await password({
-      message: "Enter master password:",
-    });
-
-    // Verify password first
-    const mnemonicResult = await exportMnemonic(masterPassword);
-    if (!mnemonicResult.ok) {
-      console.error("Wrong password or no wallets to backup.");
-      process.exit(1);
-    }
-
-    const { readFileSync, writeFileSync } = await import("node:fs");
-    const { getBaseDir } = await import("../config/paths.ts");
-    const { join } = await import("node:path");
-
-    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-    const backupPath = join(process.cwd(), `agentwallet-backup-${timestamp}.json`);
-
-    // Collect all encrypted files (already encrypted — safe to export as-is)
-    const configData = readFileSync(join(getBaseDir(), "config.json"), "utf-8");
-    const walletsData = readFileSync(join(getBaseDir(), "wallets.json"), "utf-8");
-
-    const wallets = listWallets();
-    const keyFiles: Record<string, string> = {};
-    for (const w of wallets) {
-      const keyPath = join(getBaseDir(), "vault", `${w.id}.enc`);
-      keyFiles[w.id] = readFileSync(keyPath, "utf-8");
-    }
-
-    const backup = {
-      version: 1,
-      createdAt: new Date().toISOString(),
-      config: JSON.parse(configData),
-      wallets: JSON.parse(walletsData),
-      keys: keyFiles,
-    };
-
-    writeFileSync(backupPath, JSON.stringify(backup, null, 2));
-    console.log(`✅ Backup saved to: ${backupPath}`);
-    console.log("   This file contains encrypted data — keep it safe.");
+  .command("x402-sign")
+  .description("Sign an x402 payment (PAYMENT-REQUIRED from stdin or --payment flag)")
+  .option("--payment <json>", "PAYMENT-REQUIRED header as JSON string")
+  .requiredOption("--wallet <address>", "Wallet address to pay from")
+  .option("--token <token>", "Session token (alternative to password)")
+  .option("--json", "Output as JSON")
+  .action(async (opts: { payment?: string; wallet: string; token?: string; json?: boolean }) => {
+    requireVault(opts.json);
+    let payJson = await readJsonInput(opts.payment);
+    if (!payJson) payJson = await input({ message: "Paste PAYMENT-REQUIRED JSON:" });
+    let parsed: { network: string; token: string; amount: string; recipient: string };
+    try { parsed = JSON.parse(payJson); } catch { fail("Invalid JSON input", opts.json); }
+    const auth = await getAuth(opts);
+    const r = await signX402Payment(opts.wallet, parsed!, auth);
+    if (!r.ok) fail(r.error.message, opts.json);
+    jsonOut(r.value);
   });
 
-// ─── restore ───────────────────────────────────────
-program
-  .command("restore <file>")
-  .description("Restore wallets from an encrypted backup")
-  .action(async (file: string) => {
-    if (isVaultInitialized()) {
-      const overwrite = await confirm({
-        message: "Vault already exists. Overwrite with backup data?",
-        default: false,
-      });
-      if (!overwrite) {
-        console.log("Cancelled.");
-        return;
-      }
-    }
-
-    const { readFileSync, writeFileSync } = await import("node:fs");
-    const { getBaseDir, getVaultDir } = await import("../config/paths.ts");
-    const { ensureDir } = await import("../lib/file-system.ts");
-    const { VAULT_DIR_MODE, CONFIG_FILE_MODE, KEY_FILE_MODE, WALLETS_FILE_MODE } = await import("../config/constants.ts");
-    const { join } = await import("node:path");
-
-    const backupData = readFileSync(file, "utf-8");
-    const backup = JSON.parse(backupData);
-
-    ensureDir(getBaseDir(), VAULT_DIR_MODE);
-    ensureDir(getVaultDir(), VAULT_DIR_MODE);
-
-    writeFileSync(join(getBaseDir(), "config.json"), JSON.stringify(backup.config, null, 2), { mode: CONFIG_FILE_MODE });
-    writeFileSync(join(getBaseDir(), "wallets.json"), JSON.stringify(backup.wallets, null, 2), { mode: WALLETS_FILE_MODE });
-
-    for (const [id, data] of Object.entries(backup.keys)) {
-      writeFileSync(join(getVaultDir(), `${id}.enc`), data as string, { mode: KEY_FILE_MODE });
-    }
-
-    const walletCount = backup.wallets?.wallets?.length ?? 0;
-    console.log(`✅ Restored ${walletCount} wallet(s) from backup.`);
-  });
+// ─── backup / restore ────────────────────────────────
+program.command("backup").description("Export an encrypted backup of all wallets").action(backupAction);
+program.command("restore <file>").description("Restore wallets from an encrypted backup").action(restoreAction);
 
 program.parse();
