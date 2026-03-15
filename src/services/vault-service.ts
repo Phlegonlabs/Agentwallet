@@ -11,15 +11,18 @@ import {
   exists,
   zeroize,
   hardenPermissions,
+  generateMnemonic,
 } from "../lib/index.ts";
 import {
   getBaseDir,
   getVaultDir,
   getConfigPath,
   getKeyFilePath,
+  getMasterKeyPath,
   VAULT_DIR_MODE,
   CONFIG_FILE_MODE,
   KEY_FILE_MODE,
+  MASTER_KEY_FILE_MODE,
   VAULT_VERSION,
 } from "../config/index.ts";
 import type { VaultConfig, EncryptedKeyFile, Result, HardenReport } from "../types/index.ts";
@@ -30,8 +33,21 @@ export function isVaultInitialized(): boolean {
   return exists(getConfigPath());
 }
 
+export interface InitVaultOptions {
+  /** When true, auto-generate password and write to master.key */
+  autoPassword?: boolean;
+}
+
+export interface InitVaultResult {
+  /** Path to auto-generated master.key (only when autoPassword) */
+  masterKeyPath?: string;
+}
+
 /** Initialize the vault with a master password */
-export async function initVault(masterPassword: string): Promise<Result<void>> {
+export async function initVault(
+  masterPassword: string,
+  options?: InitVaultOptions
+): Promise<Result<InitVaultResult>> {
   if (isVaultInitialized()) {
     return err(new Error("Vault already initialized. Use 'agentwallet export' to access keys."));
   }
@@ -40,15 +56,29 @@ export async function initVault(masterPassword: string): Promise<Result<void>> {
   ensureDir(getBaseDir(), VAULT_DIR_MODE);
   ensureDir(getVaultDir(), VAULT_DIR_MODE);
 
+  // Auto-generate password if requested
+  let password = masterPassword;
+  let masterKeyPath: string | undefined;
+  if (options?.autoPassword) {
+    const { randomBytes } = await import("node:crypto");
+    password = randomBytes(32).toString("hex");
+    masterKeyPath = getMasterKeyPath();
+    secureWrite(masterKeyPath, password, MASTER_KEY_FILE_MODE);
+  }
+
   // Generate salt and derive key
   const salt = await generateSalt();
-  const key = await deriveKey(masterPassword, salt);
+  const key = await deriveKey(password, salt);
 
-  // We store the salt in config — the key is never persisted
+  // Generate mnemonic and encrypt it
+  const mnemonic = generateMnemonic();
+  const mnemonicBytes = new TextEncoder().encode(mnemonic);
+  const { ciphertext, nonce } = await encrypt(mnemonicBytes, key);
+
   const config: VaultConfig = {
     salt: await toBase64(salt),
-    encryptedMnemonic: "",
-    mnemonicNonce: "",
+    encryptedMnemonic: await toBase64(ciphertext),
+    mnemonicNonce: await toBase64(nonce),
     version: VAULT_VERSION,
     createdAt: new Date().toISOString(),
   };
@@ -56,7 +86,8 @@ export async function initVault(masterPassword: string): Promise<Result<void>> {
   secureWrite(getConfigPath(), JSON.stringify(config, null, 2), CONFIG_FILE_MODE);
 
   await zeroize(key);
-  return ok(undefined);
+  await zeroize(mnemonicBytes);
+  return ok({ masterKeyPath });
 }
 
 /** Load the vault config */
@@ -76,14 +107,19 @@ export function saveConfig(config: VaultConfig): void {
 /** Encrypt and store a mnemonic */
 export async function storeMnemonic(
   mnemonic: string,
-  masterPassword: string
+  auth: string | Uint8Array
 ): Promise<Result<void>> {
   const configResult = loadConfig();
   if (!configResult.ok) return configResult;
 
   const config = configResult.value;
-  const salt = await fromBase64(config.salt);
-  const key = await deriveKey(masterPassword, salt);
+  let key: Uint8Array;
+  if (auth instanceof Uint8Array) {
+    key = auth;
+  } else {
+    const salt = await fromBase64(config.salt);
+    key = await deriveKey(auth, salt);
+  }
   const mnemonicBytes = new TextEncoder().encode(mnemonic);
   const { ciphertext, nonce } = await encrypt(mnemonicBytes, key);
 
@@ -91,14 +127,14 @@ export async function storeMnemonic(
   config.mnemonicNonce = await toBase64(nonce);
   saveConfig(config);
 
-  await zeroize(key);
+  if (!(auth instanceof Uint8Array)) await zeroize(key);
   await zeroize(mnemonicBytes);
   return ok(undefined);
 }
 
 /** Decrypt and return the mnemonic */
 export async function retrieveMnemonic(
-  masterPassword: string
+  auth: string | Uint8Array
 ): Promise<Result<string>> {
   const configResult = loadConfig();
   if (!configResult.ok) return configResult;
@@ -108,13 +144,18 @@ export async function retrieveMnemonic(
     return err(new Error("No mnemonic stored. Create a wallet first."));
   }
 
-  const salt = await fromBase64(config.salt);
-  const key = await deriveKey(masterPassword, salt);
+  let key: Uint8Array;
+  if (auth instanceof Uint8Array) {
+    key = auth;
+  } else {
+    const salt = await fromBase64(config.salt);
+    key = await deriveKey(auth, salt);
+  }
   const ciphertext = await fromBase64(config.encryptedMnemonic);
   const nonce = await fromBase64(config.mnemonicNonce);
   const result = await decrypt(ciphertext, nonce, key);
 
-  await zeroize(key);
+  if (!(auth instanceof Uint8Array)) await zeroize(key);
 
   if (!result.ok) return result;
   const mnemonic = new TextDecoder().decode(result.value);
@@ -126,14 +167,19 @@ export async function retrieveMnemonic(
 export async function storePrivateKey(
   walletId: string,
   privateKey: Uint8Array,
-  masterPassword: string
+  auth: string | Uint8Array
 ): Promise<Result<void>> {
   const configResult = loadConfig();
   if (!configResult.ok) return configResult;
 
   const config = configResult.value;
-  const salt = await fromBase64(config.salt);
-  const key = await deriveKey(masterPassword, salt);
+  let key: Uint8Array;
+  if (auth instanceof Uint8Array) {
+    key = auth;
+  } else {
+    const salt = await fromBase64(config.salt);
+    key = await deriveKey(auth, salt);
+  }
   const { ciphertext, nonce } = await encrypt(privateKey, key);
 
   const keyFile: EncryptedKeyFile = {
@@ -144,14 +190,14 @@ export async function storePrivateKey(
 
   secureWrite(getKeyFilePath(walletId), JSON.stringify(keyFile, null, 2), KEY_FILE_MODE);
 
-  await zeroize(key);
+  if (!(auth instanceof Uint8Array)) await zeroize(key);
   return ok(undefined);
 }
 
 /** Decrypt and return a private key */
 export async function retrievePrivateKey(
   walletId: string,
-  masterPassword: string
+  auth: string | Uint8Array
 ): Promise<Result<Uint8Array>> {
   const keyFileResult = secureRead(getKeyFilePath(walletId));
   if (!keyFileResult.ok) {
@@ -163,13 +209,18 @@ export async function retrievePrivateKey(
   if (!configResult.ok) return configResult;
 
   const config = configResult.value;
-  const salt = await fromBase64(config.salt);
-  const key = await deriveKey(masterPassword, salt);
+  let key: Uint8Array;
+  if (auth instanceof Uint8Array) {
+    key = auth;
+  } else {
+    const salt = await fromBase64(config.salt);
+    key = await deriveKey(auth, salt);
+  }
   const ciphertext = await fromBase64(keyFile.ciphertext);
   const nonce = await fromBase64(keyFile.nonce);
   const result = await decrypt(ciphertext, nonce, key);
 
-  await zeroize(key);
+  if (!(auth instanceof Uint8Array)) await zeroize(key);
   return result;
 }
 

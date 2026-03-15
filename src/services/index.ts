@@ -5,6 +5,7 @@ export {
   retrieveMnemonic,
   hardenVault,
 } from "./vault-service.ts";
+export type { InitVaultResult } from "./vault-service.ts";
 export { generateWallet } from "./chain-service.ts";
 export {
   createWallet,

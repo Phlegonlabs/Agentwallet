@@ -21,8 +21,8 @@ import { hardenVault } from "../services/index.ts";
 import { backupAction, restoreAction } from "./backup-restore.ts";
 import { jsonOut } from "./json-output.ts";
 import { fail, requireVault, getAuth, readJsonInput } from "./cli-helpers.ts";
-import { logAudit, readAuditLog, filterBySeverity, pruneAuditLogs } from "../lib/index.ts";
-import type { AuditSeverity } from "../types/index.ts";
+import { logAudit } from "../lib/index.ts";
+import { registerAuditLogCommand } from "./audit-log-command.ts";
 
 const program = new Command();
 program
@@ -37,6 +37,35 @@ program
   .option("--json", "Output as JSON")
   .action(async (opts: { json?: boolean }) => {
     const envPw = process.env.AGENTWALLET_PASSWORD;
+    const isTTY = process.stdin.isTTY;
+    const isNonInteractive = !isTTY && !envPw;
+
+    if (isNonInteractive) {
+      // Non-interactive: auto-generate password, write to master.key, auto-unlock
+      const r = await initVault("", { autoPassword: true });
+      if (!r.ok) { logAudit("VAULT_INIT", "failure", {}); fail(r.error.message, opts.json); }
+      logAudit("VAULT_INIT", "success", { autoPassword: true });
+
+      // Auto-unlock: read back the generated password and create a session token
+      const { secureRead } = await import("../lib/index.ts");
+      const keyRead = secureRead(r.value.masterKeyPath!);
+      if (!keyRead.ok) fail("Failed to read generated master key", opts.json);
+      const tokenResult = await unlock(keyRead.value);
+      if (!tokenResult.ok) fail(tokenResult.error.message, opts.json);
+
+      if (opts.json) return jsonOut({
+        status: "initialized",
+        token: tokenResult.value.token,
+        expiresAt: tokenResult.value.expiresAt,
+        masterKeyPath: r.value.masterKeyPath,
+      });
+      process.stdout.write("Vault initialized at ~/.agentwallet/\n");
+      process.stdout.write(`   Master key written to ${r.value.masterKeyPath}\n`);
+      process.stdout.write(`   Session token: ${tokenResult.value.token}\n`);
+      process.stdout.write(`   Expires at:    ${tokenResult.value.expiresAt}\n`);
+      return;
+    }
+
     let mp: string;
     if (envPw) {
       mp = envPw;
@@ -357,40 +386,6 @@ program.command("backup").description("Export an encrypted backup of all wallets
 program.command("restore <file>").description("Restore wallets from an encrypted backup").action(restoreAction);
 
 // ─── audit-log ──────────────────────────────────────
-program
-  .command("audit-log")
-  .description("View wallet operation audit log")
-  .option("--days <n>", "Number of days to show (default: 7)")
-  .option("--severity <level>", "Filter: info, warn, critical")
-  .option("--prune", "Remove audit logs older than 90 days")
-  .option("--json", "Output as JSON")
-  .action((opts: { days?: string; severity?: string; prune?: boolean; json?: boolean }) => {
-    if (opts.prune) {
-      const r = pruneAuditLogs();
-      if (!r.ok) fail(r.error.message, opts.json);
-      if (opts.json) return jsonOut({ pruned: r.value.removed });
-      process.stdout.write(`Removed ${r.value.removed} old audit log file(s).\n`);
-      return;
-    }
-    const days = opts.days ? parseInt(opts.days, 10) : 7;
-    const r = readAuditLog(days);
-    if (!r.ok) fail(r.error.message, opts.json);
-    let entries = r.value;
-    if (opts.severity) entries = filterBySeverity(entries, opts.severity as AuditSeverity);
-    if (opts.json) {
-      const now = new Date();
-      const from = new Date(now);
-      from.setDate(from.getDate() - days);
-      return jsonOut({ entries, total: entries.length, period: { from: from.toISOString().slice(0, 10), to: now.toISOString().slice(0, 10) } });
-    }
-    if (entries.length === 0) { process.stdout.write("No audit log entries found.\n"); return; }
-    process.stdout.write(`\n  Audit log (last ${days} day(s), ${entries.length} entries):\n\n`);
-    for (const e of entries) {
-      const icon = e.severity === "critical" ? "!!" : e.severity === "warn" ? " !" : "  ";
-      const data = Object.entries(e.data).map(([k, v]) => `${k}=${v}`).join(" ");
-      process.stdout.write(`  ${icon} ${e.timestamp.slice(11, 19)} [${e.status}] ${e.event}${data ? " " + data : ""}\n`);
-    }
-    process.stdout.write("\n");
-  });
+registerAuditLogCommand(program);
 
 program.parse();

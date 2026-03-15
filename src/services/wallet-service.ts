@@ -1,16 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { generateMnemonic, zeroize, toHex, toBase58 } from "../lib/index.ts";
+import { zeroize, toHex, toBase58 } from "../lib/index.ts";
 import { secureWrite, secureRead, secureDelete, exists } from "../lib/index.ts";
 import { getWalletsPath, getKeyFilePath, WALLETS_FILE_MODE } from "../config/index.ts";
 import { findChain, SUPPORTED_CHAINS } from "../config/index.ts";
 import { generateWallet } from "./chain-service.ts";
 import {
   isVaultInitialized,
-  storeMnemonic,
   retrieveMnemonic,
   storePrivateKey,
   retrievePrivateKey,
 } from "./vault-service.ts";
+import { resolveKey } from "./session-service.ts";
 import type { Wallet, WalletStore, Result } from "../types/index.ts";
 import { ok, err } from "../types/index.ts";
 
@@ -31,7 +31,7 @@ function saveWalletStore(store: WalletStore): void {
 /** Create a wallet for a specific chain */
 export async function createWallet(
   chainId: string,
-  masterPassword: string
+  authString: string
 ): Promise<Result<Wallet>> {
   if (!isVaultInitialized()) {
     return err(new Error("Vault not initialized. Run 'agentwallet init' first."));
@@ -43,51 +43,52 @@ export async function createWallet(
     return err(new Error(`Unknown chain "${chainId}". Available: ${available}`));
   }
 
-  const store = loadWalletStore();
-
-  // Get or create mnemonic
-  let mnemonic: string;
-  const mnemonicResult = await retrieveMnemonic(masterPassword);
-  if (mnemonicResult.ok) {
-    mnemonic = mnemonicResult.value;
-  } else if (store.wallets.length === 0) {
-    // First wallet — generate new mnemonic
-    mnemonic = generateMnemonic();
-    const storeResult = await storeMnemonic(mnemonic, masterPassword);
-    if (!storeResult.ok) return storeResult;
-  } else {
-    return err(new Error("Wrong password or corrupted vault."));
-  }
-
-  // Derive wallet
-  const hdIndex = store.nextHdIndex;
-  const derived = generateWallet(chain, mnemonic, hdIndex);
-
-  // Store encrypted private key
-  const walletId = randomUUID();
-  const keyResult = await storePrivateKey(walletId, derived.privateKey, masterPassword);
+  // Resolve auth to derived key (handles both password and session token)
+  const keyResult = await resolveKey(authString);
   if (!keyResult.ok) return keyResult;
+  const derivedKey = keyResult.value;
 
-  // Create wallet record
-  const wallet: Wallet = {
-    id: walletId,
-    address: derived.address,
-    chainType: chain.type,
-    chainId: chain.id,
-    chainName: chain.name,
-    createdAt: new Date().toISOString(),
-    hdPath: derived.hdPath,
-    hdIndex,
-  };
+  try {
+    const store = loadWalletStore();
 
-  store.wallets.push(wallet);
-  store.nextHdIndex = hdIndex + 1;
-  saveWalletStore(store);
+    const mnemonicResult = await retrieveMnemonic(derivedKey);
+    if (!mnemonicResult.ok) {
+      return err(new Error("Wrong password or corrupted vault."));
+    }
+    const mnemonic = mnemonicResult.value;
 
-  // Zeroize sensitive data
-  await zeroize(derived.privateKey);
+    // Derive wallet
+    const hdIndex = store.nextHdIndex;
+    const derived = generateWallet(chain, mnemonic, hdIndex);
 
-  return ok(wallet);
+    // Store encrypted private key
+    const walletId = randomUUID();
+    const storeResult = await storePrivateKey(walletId, derived.privateKey, derivedKey);
+    if (!storeResult.ok) return storeResult;
+
+    // Create wallet record
+    const wallet: Wallet = {
+      id: walletId,
+      address: derived.address,
+      chainType: chain.type,
+      chainId: chain.id,
+      chainName: chain.name,
+      createdAt: new Date().toISOString(),
+      hdPath: derived.hdPath,
+      hdIndex,
+    };
+
+    store.wallets.push(wallet);
+    store.nextHdIndex = hdIndex + 1;
+    saveWalletStore(store);
+
+    // Zeroize sensitive data
+    await zeroize(derived.privateKey);
+
+    return ok(wallet);
+  } finally {
+    await zeroize(derivedKey);
+  }
 }
 
 /** Create wallets for all supported chains */

@@ -23,3 +23,5 @@ export {
   SESSION_DEFAULT_TTL_SECONDS,
 } from "./session.ts";
 export type { HardenEntry, HardenReport } from "./hardening.ts";
+export type { AuditEvent, AuditSeverity, AuditEntry } from "./audit.ts";
+export { eventSeverity } from "./audit.ts";
