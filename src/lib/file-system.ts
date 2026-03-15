@@ -1,11 +1,16 @@
-import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, chmodSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync, readFileSync, unlinkSync, chmodSync, statSync, readdirSync } from "node:fs";
+import { platform } from "node:os";
+import { join } from "node:path";
 import type { Result } from "../types/index.ts";
 import { ok, err } from "../types/index.ts";
+import type { HardenEntry, HardenReport } from "../types/index.ts";
 
-/** Create a directory with specific permissions */
+/** Create a directory with specific permissions, fixing existing dirs */
 export function ensureDir(dirPath: string, mode: number): void {
   if (!existsSync(dirPath)) {
     mkdirSync(dirPath, { recursive: true, mode });
+  } else {
+    try { chmodSync(dirPath, mode); } catch { /* Windows no-op */ }
   }
 }
 
@@ -43,4 +48,94 @@ export function secureDelete(filePath: string): void {
 /** Check if a path exists */
 export function exists(filePath: string): boolean {
   return existsSync(filePath);
+}
+
+/** Check and fix permissions on vault paths. No-op on Windows. */
+export function hardenPermissions(
+  baseDir: string,
+  vaultDir: string,
+  expectedDirMode: number,
+  expectedFileMode: number,
+): HardenReport {
+  const report: HardenReport = {
+    timestamp: new Date().toISOString(),
+    platform: platform(),
+    entries: [],
+    totalChecked: 0,
+    totalFixed: 0,
+    totalErrors: 0,
+  };
+
+  if (platform() === "win32") return report;
+
+  const dirPaths = [baseDir, vaultDir];
+  for (const dirPath of dirPaths) {
+    report.entries.push(hardenOne(dirPath, "directory", expectedDirMode));
+  }
+
+  if (existsSync(vaultDir)) {
+    try {
+      const files = readdirSync(vaultDir);
+      for (const file of files) {
+        if (file.endsWith(".enc")) {
+          report.entries.push(hardenOne(join(vaultDir, file), "file", expectedFileMode));
+        }
+      }
+    } catch (e) {
+      report.entries.push({
+        path: vaultDir,
+        kind: "directory",
+        expectedMode: expectedDirMode,
+        actualMode: null,
+        status: "error",
+        error: `Failed to read vault dir: ${e instanceof Error ? e.message : String(e)}`,
+      });
+    }
+  }
+
+  const configFiles = ["config.json", "wallets.json", ".session"];
+  for (const name of configFiles) {
+    const filePath = join(baseDir, name);
+    if (existsSync(filePath)) {
+      report.entries.push(hardenOne(filePath, "file", expectedFileMode));
+    }
+  }
+
+  for (const entry of report.entries) {
+    report.totalChecked++;
+    if (entry.status === "fixed") report.totalFixed++;
+    if (entry.status === "error") report.totalErrors++;
+  }
+
+  return report;
+}
+
+function hardenOne(
+  targetPath: string,
+  kind: "directory" | "file",
+  expectedMode: number,
+): HardenEntry {
+  const entry: HardenEntry = {
+    path: targetPath,
+    kind,
+    expectedMode,
+    actualMode: null,
+    status: "ok",
+  };
+  try {
+    if (!existsSync(targetPath)) {
+      entry.status = "ok";
+      return entry;
+    }
+    const actual = statSync(targetPath).mode & 0o777;
+    entry.actualMode = actual;
+    if (actual !== expectedMode) {
+      chmodSync(targetPath, expectedMode);
+      entry.status = "fixed";
+    }
+  } catch (e) {
+    entry.status = "error";
+    entry.error = e instanceof Error ? e.message : String(e);
+  }
+  return entry;
 }
