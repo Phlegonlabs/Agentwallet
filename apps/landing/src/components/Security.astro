@@ -17,25 +17,60 @@ const layers = [
     detail: "Keys never enter model context. Agent signing runs as a local-only process.",
   },
 ];
+
+const agentPerms = [
+  { action: "Create wallets", method: "Session token", who: "Agent" },
+  { action: "Transfer tokens", method: "Session token", who: "Agent" },
+  { action: "Sign transactions", method: "Session token", who: "Agent" },
+  { action: "x402 payments", method: "Session token", who: "Agent" },
+  { action: "Export private key", method: "Master password + TTY", who: "You only" },
+  { action: "View mnemonic", method: "Master password + TTY", who: "You only" },
+];
 ---
 
 <section id="security" class="py-20 px-6">
-  <div class="max-w-3xl mx-auto">
+  <div class="max-w-5xl mx-auto">
     <h2 class="text-2xl font-bold text-center text-slate-900 mb-3">Security by design, not by promise</h2>
     <p class="text-center text-slate-500 mb-12">Four layers of protection for your private keys.</p>
 
-    <div class="space-y-4">
-      {layers.map((layer, i) => (
-        <div class="flex items-start gap-4 p-5 rounded-xl border border-slate-100 bg-white">
-          <div class="flex-shrink-0 w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-bold">
-            {i + 1}
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- Left: Security layers -->
+      <div class="space-y-4">
+        {layers.map((layer, i) => (
+          <div class="flex items-start gap-4 p-5 rounded-xl border border-slate-100 bg-white">
+            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-bold">
+              {i + 1}
+            </div>
+            <div>
+              <h3 class="font-semibold text-slate-900">{layer.label}</h3>
+              <p class="text-sm text-slate-500 mt-1">{layer.detail}</p>
+            </div>
           </div>
-          <div>
-            <h3 class="font-semibold text-slate-900">{layer.label}</h3>
-            <p class="text-sm text-slate-500 mt-1">{layer.detail}</p>
-          </div>
+        ))}
+      </div>
+
+      <!-- Right: Agent permission model -->
+      <div class="bg-white rounded-xl border border-slate-100 p-6">
+        <h3 class="font-semibold text-slate-900 mb-2">Agent permission model</h3>
+        <p class="text-sm text-slate-500 mb-5">Agents get a temporary session token for daily operations. Sensitive actions require your master password and a real terminal — no agent can access them.</p>
+
+        <div class="space-y-2">
+          {agentPerms.map((p) => (
+            <div class={`flex items-center justify-between p-3 rounded-lg text-sm ${p.who === "You only" ? "bg-red-50" : "bg-emerald-50"}`}>
+              <span class={`font-medium ${p.who === "You only" ? "text-red-700" : "text-emerald-700"}`}>{p.action}</span>
+              <div class="flex items-center gap-2">
+                <span class={`text-xs px-2 py-0.5 rounded-full ${p.who === "You only" ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"}`}>{p.who}</span>
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+
+        <div class="mt-5 p-4 rounded-lg bg-slate-50">
+          <p class="text-xs text-slate-500 leading-relaxed">
+            <span class="font-semibold text-slate-700">How it works:</span> You unlock the vault with your master password and get a session token (expires in 1 hour). The agent uses this token for daily operations. Exporting keys requires both your password and a real terminal (TTY) — agents are automatically blocked.
+          </p>
+        </div>
+      </div>
     </div>
   </div>
 </section>
