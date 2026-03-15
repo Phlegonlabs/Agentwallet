@@ -1,0 +1,16 @@
+/** Argon2id parameters */
+export const ARGON2_OPS_LIMIT = 3;
+export const ARGON2_MEM_LIMIT = 256 * 1024 * 1024; // 256MB
+
+/** File permission modes */
+export const VAULT_DIR_MODE = 0o700;
+export const KEY_FILE_MODE = 0o400;
+export const CONFIG_FILE_MODE = 0o600;
+export const WALLETS_FILE_MODE = 0o600;
+
+/** HD derivation paths */
+export const EVM_HD_PATH = "m/44'/60'/0'/0";
+export const SOLANA_HD_PATH = "m/44'/501'/0'/0'";
+
+/** Vault format version */
+export const VAULT_VERSION = 1;
