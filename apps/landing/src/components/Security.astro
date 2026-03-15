@@ -1,0 +1,41 @@
+---
+const layers = [
+  {
+    label: "Encryption",
+    detail: "Argon2id key derivation + XSalsa20-Poly1305 authenticated encryption",
+  },
+  {
+    label: "File permissions",
+    detail: "chmod 400 on key files, chmod 700 on vault directory",
+  },
+  {
+    label: "Memory safety",
+    detail: "Private keys zeroed after use with sodium_memzero. mlock prevents swap leaks.",
+  },
+  {
+    label: "LLM isolation",
+    detail: "Keys never enter model context. Agent signing runs as a local-only process.",
+  },
+];
+---
+
+<section id="security" class="py-20 px-6">
+  <div class="max-w-3xl mx-auto">
+    <h2 class="text-2xl font-bold text-center text-slate-900 mb-3">Security by design, not by promise</h2>
+    <p class="text-center text-slate-500 mb-12">Four layers of protection for your private keys.</p>
+
+    <div class="space-y-4">
+      {layers.map((layer, i) => (
+        <div class="flex items-start gap-4 p-5 rounded-xl border border-slate-100 bg-white">
+          <div class="flex-shrink-0 w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-bold">
+            {i + 1}
+          </div>
+          <div>
+            <h3 class="font-semibold text-slate-900">{layer.label}</h3>
+            <p class="text-sm text-slate-500 mt-1">{layer.detail}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

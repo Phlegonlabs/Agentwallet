@@ -1,0 +1,65 @@
+---
+---
+
+<section class="py-20 px-6">
+  <div class="max-w-3xl mx-auto">
+    <h2 class="text-2xl font-bold text-center text-slate-900 mb-3">60 seconds to your first wallet</h2>
+    <p class="text-center text-slate-500 mb-10">Three commands. That's all it takes.</p>
+
+    <div class="bg-slate-950 rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10">
+      <!-- Terminal header -->
+      <div class="flex items-center gap-2 px-4 py-3 bg-slate-900/50 border-b border-slate-800">
+        <div class="w-3 h-3 rounded-full bg-slate-700"></div>
+        <div class="w-3 h-3 rounded-full bg-slate-700"></div>
+        <div class="w-3 h-3 rounded-full bg-slate-700"></div>
+        <span class="ml-2 text-xs text-slate-500 font-mono">terminal</span>
+      </div>
+
+      <!-- Terminal content -->
+      <div class="p-6 font-mono text-sm leading-relaxed space-y-6">
+        <!-- Step 1: Init -->
+        <div>
+          <div class="flex items-center gap-2 text-slate-400">
+            <span class="text-emerald-400">$</span>
+            <span class="text-white">agentwallet init</span>
+          </div>
+          <div class="mt-1 text-slate-500 pl-4">
+            <p>Set your master password: ********</p>
+            <p class="text-emerald-400">&#10003; Vault initialized at ~/.agentwallet/</p>
+          </div>
+        </div>
+
+        <!-- Step 2: Create -->
+        <div>
+          <div class="flex items-center gap-2 text-slate-400">
+            <span class="text-emerald-400">$</span>
+            <span class="text-white">agentwallet create</span>
+          </div>
+          <div class="mt-1 text-slate-500 pl-4">
+            <p>? Select chain:</p>
+            <p class="text-white pl-2">&gt; Ethereum</p>
+            <p class="pl-2">&nbsp; Polygon</p>
+            <p class="pl-2">&nbsp; BSC</p>
+            <p class="pl-2">&nbsp; Solana</p>
+            <p class="pl-2">&nbsp; All chains (EVM + Solana)</p>
+            <p class="mt-2 text-emerald-400">&#10003; Ethereum wallet created:</p>
+            <p class="text-slate-300">&nbsp; Address: 0x1a2b...9f3e</p>
+            <p class="text-slate-500">&nbsp; Private key encrypted → ~/.agentwallet/vault/</p>
+          </div>
+        </div>
+
+        <!-- Step 3: List -->
+        <div>
+          <div class="flex items-center gap-2 text-slate-400">
+            <span class="text-emerald-400">$</span>
+            <span class="text-white">agentwallet list</span>
+          </div>
+          <div class="mt-1 text-slate-500 pl-4">
+            <p>Found 1 wallet(s):</p>
+            <p class="text-slate-300">Ethereum&nbsp;&nbsp;&nbsp;&nbsp; 0x1a2b...9f3e&nbsp; (3/15/2026)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
