@@ -1,0 +1,52 @@
+---
+---
+
+<section class="pt-32 pb-20 px-6">
+  <div class="max-w-3xl mx-auto text-center">
+    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-sm mb-8">
+      <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+      Open Source CLI Tool
+    </div>
+
+    <h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 leading-[1.1]">
+      One command.<br />
+      <span class="text-slate-400">Multi-chain wallets.</span><br />
+      Securely stored.
+    </h1>
+
+    <p class="mt-6 text-lg text-slate-500 max-w-xl mx-auto leading-relaxed">
+      Create Ethereum, Solana, and all EVM chain wallets on your VPS or local machine. Private keys encrypted and stored locally — never exposed to AI models or third parties.
+    </p>
+
+    <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+      <div class="group relative w-full sm:w-auto">
+        <div class="flex items-center gap-3 bg-slate-900 text-white rounded-xl px-5 py-3.5 font-mono text-sm cursor-pointer select-all" id="install-cmd">
+          <span class="text-slate-400">$</span>
+          <span>npm i -g agentwallet</span>
+          <button
+            class="ml-auto text-slate-400 hover:text-white transition-colors"
+            id="copy-btn"
+            aria-label="Copy install command"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <p class="mt-4 text-sm text-slate-400">
+      Works on Linux, macOS, and Windows. Requires Node.js 18+.
+    </p>
+  </div>
+</section>
+
+<script>
+  const btn = document.getElementById("copy-btn");
+  btn?.addEventListener("click", () => {
+    navigator.clipboard.writeText("npm i -g agentwallet");
+    btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>';
+    setTimeout(() => {
+      btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+    }, 2000);
+  });
+</script>

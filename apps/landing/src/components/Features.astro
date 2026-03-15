@@ -1,0 +1,53 @@
+---
+const features = [
+  {
+    icon: `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>`,
+    title: "Multi-chain support",
+    desc: "One mnemonic, all chains. Create wallets for Ethereum, Solana, and all major EVM networks from a single seed phrase.",
+  },
+  {
+    icon: `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>`,
+    title: "Encrypted storage",
+    desc: "Private keys encrypted with Argon2id + XSalsa20-Poly1305. Files locked to chmod 400. Military-grade protection on your own machine.",
+  },
+  {
+    icon: `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`,
+    title: "Interactive CLI",
+    desc: "Choose your chain from an interactive menu or use flags for automation. Batch create multiple wallets with --count.",
+  },
+  {
+    icon: `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`,
+    title: "LLM isolation",
+    desc: "Private keys never enter AI model context. Agent signing runs locally. Your keys stay between you and your machine.",
+  },
+  {
+    icon: `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`,
+    title: "Secure export",
+    desc: "Export keys with password verification. Terminal auto-clears after 10 seconds. No accidental exposure.",
+  },
+  {
+    icon: `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>`,
+    title: "Backup & restore",
+    desc: "Export encrypted backups. Restore on any machine. Your vault travels with you, safely.",
+  },
+];
+---
+
+<section id="features" class="py-20 px-6 bg-slate-50">
+  <div class="max-w-5xl mx-auto">
+    <h2 class="text-2xl font-bold text-center text-slate-900 mb-3">Everything you need. Nothing you don't.</h2>
+    <p class="text-center text-slate-500 mb-14 max-w-lg mx-auto">Built for people who want wallets on their VPS without the complexity.</p>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      {features.map((f) => (
+        <div class="bg-white rounded-xl p-6 border border-slate-100">
+          <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-600 mb-4">
+            <Fragment set:html={f.icon} />
+          </div>
+          <h3 class="font-semibold text-slate-900 mb-2">{f.title}</h3>
+          <p class="text-sm text-slate-500 leading-relaxed">{f.desc}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>

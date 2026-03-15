@@ -1,0 +1,29 @@
+---
+const chains = [
+  { name: "Ethereum", abbr: "ETH" },
+  { name: "Polygon", abbr: "MATIC" },
+  { name: "BSC", abbr: "BNB" },
+  { name: "Base", abbr: "BASE" },
+  { name: "Arbitrum", abbr: "ARB" },
+  { name: "Optimism", abbr: "OP" },
+  { name: "Avalanche", abbr: "AVAX" },
+  { name: "Fantom", abbr: "FTM" },
+  { name: "Solana", abbr: "SOL" },
+];
+---
+
+<section class="py-16 px-6 border-t border-slate-100">
+  <div class="max-w-5xl mx-auto">
+    <p class="text-center text-sm text-slate-400 mb-8">Supports 9 chains and growing</p>
+    <div class="flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+      {chains.map((chain) => (
+        <div class="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-50 border border-slate-100">
+          <div class="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center">
+            <span class="text-[10px] font-bold text-slate-600">{chain.abbr.slice(0, 2)}</span>
+          </div>
+          <span class="text-sm font-medium text-slate-700">{chain.name}</span>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
