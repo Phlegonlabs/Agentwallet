@@ -1,77 +1,38 @@
-# AgentWallet
+<!-- BEGIN:HARNESS:README -->
+# AgentWallet — Product Requirements Document
 
-Multi-chain crypto wallet CLI — create, encrypt, and manage wallets securely on VPS or local machines.
+Multi-chain crypto wallet CLI — create, encrypt, and manage wallets securely on VPS or local machines
 
-## Install
+## Start Here
+
+- Quick start: [docs/public/quick-start.md](docs/public/quick-start.md)
+- Documentation map: [docs/public/documentation-map.md](docs/public/documentation-map.md)
+- Tech stack: [docs/public/tech-stack.md](docs/public/tech-stack.md)
+
+## Core Docs
+
+- Product requirements: [docs/PRD.md](docs/PRD.md)
+- Architecture: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Progress: [docs/PROGRESS.md](docs/PROGRESS.md)
+- AI workflow: [AGENTS.md](AGENTS.md)
+- GitBook: [docs/gitbook/README.md](docs/gitbook/README.md)
+
+## Workflow
 
 ```bash
-npm i -g agentwallet
+bun install
+bun harness:advance
+bun harness:sync-backlog
+bun harness:add-surface --type agent
+bun harness:sync-docs
+bun harness:audit
 ```
 
-Or run directly:
+This workspace is monorepo-first. Keep adding new surfaces inside the same repository as later milestones.
+Do not bootstrap product frameworks such as Next.js, Tauri, or provider SDK stacks during scaffold setup. Introduce them only inside milestone tasks.
+If product scope changes after execution begins, update the PRD first and run `bun harness:sync-backlog` before implementing the new work.
 
-```bash
-npx agentwallet
-```
-
-## Quick Start
-
-```bash
-# 1. Initialize vault with a master password
-agentwallet init
-
-# 2. Create a wallet (interactive chain selection)
-agentwallet create
-
-# 3. Or specify the chain directly
-agentwallet create --chain ethereum
-agentwallet create --chain solana
-
-# 4. Create wallets for all chains at once
-agentwallet create --chain all
-
-# 5. Batch create
-agentwallet create --chain polygon --count 5
-```
-
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `agentwallet init` | Initialize vault with master password |
-| `agentwallet create` | Create a new wallet (interactive chain selection) |
-| `agentwallet list` | List all wallets |
-| `agentwallet export <address>` | Export private key (auto-clears after 10s) |
-| `agentwallet mnemonic` | Display mnemonic phrase (auto-clears after 10s) |
-| `agentwallet label <address> <name>` | Set a label for a wallet |
-| `agentwallet delete <address>` | Securely delete a wallet |
-| `agentwallet backup` | Export encrypted backup |
-| `agentwallet restore <file>` | Restore from backup |
-
-## Supported Chains
-
-| Chain | Type |
-|-------|------|
-| Ethereum | EVM |
-| Polygon | EVM |
-| BSC | EVM |
-| Base | EVM |
-| Arbitrum | EVM |
-| Optimism | EVM |
-| Avalanche | EVM |
-| Fantom | EVM |
-| Solana | Non-EVM |
-
-All EVM chains share the same private key and address.
-
-## Security
-
-- **Encryption**: Argon2id key derivation + XSalsa20-Poly1305 authenticated encryption
-- **File permissions**: Key files chmod 400, vault directory chmod 700
-- **Memory safety**: Private keys zeroed after use with `sodium_memzero`
-- **LLM isolation**: Keys never enter AI model context
-- **Storage**: All data stored locally at `~/.agentwallet/`
-
-## License
-
-MIT
+- `apps/`: current surfaces -> cli, landing
+- `packages/shared/`: shared contracts and utilities
+- `packages/shared/api/`: agent-facing API wrappers
+<!-- END:HARNESS:README -->

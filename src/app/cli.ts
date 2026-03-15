@@ -17,6 +17,7 @@ import {
 } from "../services/index.ts";
 import { exportPrivateKey, exportMnemonic } from "../services/wallet-service.ts";
 import { SUPPORTED_CHAINS } from "../config/index.ts";
+import { hardenVault } from "../services/index.ts";
 import { backupAction, restoreAction } from "./backup-restore.ts";
 import { jsonOut } from "./json-output.ts";
 import { fail, requireVault, getAuth, readJsonInput } from "./cli-helpers.ts";
@@ -298,6 +299,31 @@ program
     const r = await signX402Payment(opts.wallet, parsed!, auth);
     if (!r.ok) fail(r.error.message, opts.json);
     jsonOut(r.value);
+  });
+
+// ─── harden ──────────────────────────────────────────
+program
+  .command("harden")
+  .description("Audit and fix vault file permissions")
+  .option("--json", "Output as JSON")
+  .option("--strict", "Exit with code 1 if any permissions were fixed")
+  .action((opts: { json?: boolean; strict?: boolean }) => {
+    requireVault(opts.json);
+    const report = hardenVault();
+    if (opts.json) return jsonOut(report);
+    if (report.totalChecked === 0) {
+      process.stdout.write("No vault paths to check (Windows or vault not initialized).\n");
+      return;
+    }
+    process.stdout.write(`\nVault permission audit:\n`);
+    for (const e of report.entries) {
+      const mode = e.actualMode !== null ? `0o${e.actualMode.toString(8)}` : "n/a";
+      const expected = `0o${e.expectedMode.toString(8)}`;
+      const icon = e.status === "ok" ? "  ok" : e.status === "fixed" ? "  fixed" : "  ERROR";
+      process.stdout.write(`  ${icon}  ${e.path}  (${mode} -> ${expected})\n`);
+    }
+    process.stdout.write(`\n  Checked: ${report.totalChecked}  Fixed: ${report.totalFixed}  Errors: ${report.totalErrors}\n\n`);
+    if (opts.strict && report.totalFixed > 0) process.exit(1);
   });
 
 // ─── backup / restore ────────────────────────────────

@@ -2,44 +2,32 @@
 
 <!-- What does this PR do? One sentence summary. -->
 
-Closes: PRD#F[ID]
-
 ---
 
-## Related Tasks
+## Changes
 
-| Task | Description | Commit |
-|------|-------------|--------|
-| T[ID] | [description] | [commit hash] |
+<!-- List the key changes made in this PR -->
+
+-
 
 ---
 
 ## Pre-merge Checklist
 
-<!-- All items must be checked before merge -->
-
 ### Code Quality
-- [ ] `bun run typecheck` → 0 errors
-- [ ] `bun run lint` → 0 warnings
-- [ ] `bun test` → all passing
-- [ ] `bun run build` → success
-
-### Harness
-- [ ] All tasks have Atomic Commits (with Task-ID)
+- [ ] `bun run typecheck` passes
+- [ ] `bun run lint` passes
+- [ ] `bun test` passes
+- [ ] `bun run build` succeeds
+- [ ] All changed files are under 400 lines
 - [ ] No `console.log` / `: any` / `@ts-ignore` leftovers
-- [ ] All changed files ≤ 400 lines
-- [ ] `docs/PROGRESS.md` updated
-- [ ] `AGENTS.md` and `CLAUDE.md` are in sync (if modified)
 
-### Milestone Gate (run before merge)
-```bash
-bun harness:validate --milestone M[N]
-```
-- [ ] Gate fully passed (exit 0)
-
-### Documentation (if UI or API changes)
-- [ ] Related pages in `docs/gitbook/` updated
-- [ ] `docs/gitbook/changelog/CHANGELOG.md` entry added
+### Security
+- [ ] No plaintext keys, passwords, or mnemonics in logs or error messages
+- [ ] `zeroize()` called on all sensitive buffers after use
+- [ ] Vault file operations use `secureWrite()` / `secureRead()` / `secureDelete()`
+- [ ] File permissions set correctly for any new vault files
+- [ ] No secrets committed (API keys, tokens, `.env` files)
 
 ---
 
@@ -51,17 +39,7 @@ bun harness:validate --milestone M[N]
 1.
 2.
 
-**Test coverage**: X% (`bun test --coverage`)
-
----
-
-## Screenshots (required for UI changes)
-
-<!-- Before / After screenshots -->
-
-| Before | After |
-|--------|-------|
-|   |   |
+**Test coverage**: (`bun test --coverage`)
 
 ---
 

@@ -1,57 +1,55 @@
-# dependencies (bun install)
-node_modules
+# Dependencies
+node_modules/
 
-# output
-out
-dist
+# Build output
+dist/
+out/
 *.tgz
 
-# code coverage
-coverage
+# Coverage
+coverage/
 *.lcov
 
-# logs
-logs
-_.log
-report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
-
-# dotenv environment variable files
+# Environment variables
 .env
-.env.development.local
-.env.test.local
-.env.production.local
 .env.local
+.env.*.local
 
-# caches
+# Caches
 .eslintcache
 .cache
 *.tsbuildinfo
+.next/
+.turbo/
 
-# IntelliJ based IDEs
-.idea
+# Logs
+logs/
+*.log
 
-# Finder (MacOS) folder config
+# IDE
+.idea/
+.vscode/
+
+# OS
 .DS_Store
+Thumbs.db
 
-# Harness Engineering (local managed files)
+# Harness Engineering (local-only managed files)
 .harness/
 AGENTS.md
 CLAUDE.md
 agents/
 docs/ai/
 docs/progress/
-
-# Harness required entries
-node_modules/
-.env.*.local
-dist/
-.next/
-.turbo/
-.harness/*.log
+docs/PROGRESS.md
 .claude/
 .codex/
 SKILLS.md
-# Keep skills/agentwallet/ tracked for OpenClaw skill distribution
+
+# Skills — track only agentwallet skill
 skills/*
 !skills/agentwallet/
-docs/PROGRESS.md
+
+# Harness required entries
+.env.production
+.harness/*.log

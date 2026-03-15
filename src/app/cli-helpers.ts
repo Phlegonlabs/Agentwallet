@@ -2,6 +2,13 @@ import { password } from "@inquirer/prompts";
 import { isVaultInitialized } from "../services/index.ts";
 import { resolveAuth } from "../services/session-service.ts";
 import { jsonErr } from "./json-output.ts";
+import { hardenPermissions } from "../lib/index.ts";
+import {
+  getBaseDir,
+  getVaultDir,
+  VAULT_DIR_MODE,
+  CONFIG_FILE_MODE,
+} from "../config/index.ts";
 
 /** Print error message (JSON or text) and exit */
 export function fail(message: string, json?: boolean): never {
@@ -10,11 +17,12 @@ export function fail(message: string, json?: boolean): never {
   process.exit(1);
 }
 
-/** Ensure vault is initialized or exit */
+/** Ensure vault is initialized or exit, silently fixing permissions */
 export function requireVault(json?: boolean): void {
   if (!isVaultInitialized()) {
     fail("Vault not initialized. Run 'agentwallet init' first.", json);
   }
+  hardenPermissions(getBaseDir(), getVaultDir(), VAULT_DIR_MODE, CONFIG_FILE_MODE);
 }
 
 /** Resolve auth from --token, AGENTWALLET_TOKEN env, or interactive password prompt */
