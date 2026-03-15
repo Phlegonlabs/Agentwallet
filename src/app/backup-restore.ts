@@ -4,6 +4,7 @@ import {
   listWallets,
 } from "../services/index.ts";
 import { exportMnemonic } from "../services/wallet-service.ts";
+import { logAudit } from "../lib/index.ts";
 
 /** Backup command handler */
 export async function backupAction(): Promise<void> {
@@ -43,6 +44,7 @@ export async function backupAction(): Promise<void> {
   };
 
   writeFileSync(backupPath, JSON.stringify(backup, null, 2));
+  logAudit("BACKUP_CREATE", "success", { walletCount: wallets.length });
   process.stdout.write(`Backup saved to: ${backupPath}\n`);
   process.stdout.write("   This file contains encrypted data — keep it safe.\n");
 }
@@ -80,5 +82,6 @@ export async function restoreAction(file: string): Promise<void> {
   }
 
   const walletCount = backup.wallets?.wallets?.length ?? 0;
+  logAudit("BACKUP_RESTORE", "success", { walletCount });
   process.stdout.write(`Restored ${walletCount} wallet(s) from backup.\n`);
 }

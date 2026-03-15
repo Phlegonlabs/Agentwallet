@@ -30,3 +30,16 @@ export function getBackupPath(timestamp: string): string {
 export function getSessionPath(): string {
   return join(getBaseDir(), ".session");
 }
+
+export function getAuditLogDir(): string {
+  return join(getBaseDir(), "logs");
+}
+
+export function getAuditLogPath(date?: string): string {
+  const d = date ?? new Date().toISOString().slice(0, 10);
+  return join(getAuditLogDir(), `audit-${d}.jsonl`);
+}
+
+export function getMasterKeyPath(): string {
+  return join(getBaseDir(), "master.key");
+}

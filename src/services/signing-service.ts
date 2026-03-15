@@ -39,7 +39,8 @@ import { internal } from "@ton/core";
 import { TonClient } from "@ton/ton";
 import { listWallets } from "./wallet-service.ts";
 import { retrievePrivateKey } from "./vault-service.ts";
-import { withSecureScope, toHex } from "../lib/index.ts";
+import { resolveKey } from "./session-service.ts";
+import { withSecureScope, toHex, zeroize } from "../lib/index.ts";
 import type {
   Result,
   SignRequest,
@@ -86,9 +87,16 @@ export async function signTransaction(
     return err(new Error(`Wallet not found: ${walletAddress}`));
   }
 
+  // Resolve auth to derived key (handles both password and session token)
+  const keyResult = await resolveKey(masterPassword);
+  if (!keyResult.ok) {
+    return err(new Error(`Signing failed: ${keyResult.error.message}`));
+  }
+  const derivedKey = keyResult.value;
+
   try {
     const signed = await withSecureScope(
-      () => retrievePrivateKey(wallet.id, masterPassword).then((r) => {
+      () => retrievePrivateKey(wallet.id, derivedKey).then((r) => {
         if (!r.ok) throw new Error("Wrong password or corrupted vault.");
         return r.value;
       }),
@@ -114,6 +122,8 @@ export async function signTransaction(
     return err(
       new Error(`Signing failed: ${e instanceof Error ? e.message : String(e)}`)
     );
+  } finally {
+    await zeroize(derivedKey);
   }
 }
 

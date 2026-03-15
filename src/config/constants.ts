@@ -8,6 +8,7 @@ export const KEY_FILE_MODE = 0o400;
 export const CONFIG_FILE_MODE = 0o600;
 export const WALLETS_FILE_MODE = 0o600;
 export const SESSION_FILE_MODE = 0o600;
+export const MASTER_KEY_FILE_MODE = 0o600;
 
 /** HD derivation paths */
 export const EVM_HD_PATH = "m/44'/60'/0'/0";
