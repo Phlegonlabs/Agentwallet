@@ -22,3 +22,4 @@ export {
   SESSION_MAX_TTL_SECONDS,
   SESSION_DEFAULT_TTL_SECONDS,
 } from "./session.ts";
+export type { HardenEntry, HardenReport } from "./hardening.ts";
