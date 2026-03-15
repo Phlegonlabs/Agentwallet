@@ -12,3 +12,13 @@ export type {
   SignRequest,
   SignResult,
 } from "./transaction.ts";
+export type {
+  SessionTokenString,
+  SessionFile,
+  SessionTokenResult,
+} from "./session.ts";
+export {
+  SESSION_MIN_TTL_SECONDS,
+  SESSION_MAX_TTL_SECONDS,
+  SESSION_DEFAULT_TTL_SECONDS,
+} from "./session.ts";

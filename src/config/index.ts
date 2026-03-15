@@ -18,4 +18,5 @@ export {
   getWalletsPath,
   getKeyFilePath,
   getBackupPath,
+  getSessionPath,
 } from "./paths.ts";

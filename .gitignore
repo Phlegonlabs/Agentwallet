@@ -40,3 +40,18 @@ CLAUDE.md
 agents/
 docs/ai/
 docs/progress/
+
+# Harness required entries
+node_modules/
+.env.*.local
+dist/
+.next/
+.turbo/
+.harness/*.log
+.claude/
+.codex/
+SKILLS.md
+# Keep skills/agentwallet/ tracked for OpenClaw skill distribution
+skills/*
+!skills/agentwallet/
+docs/PROGRESS.md
