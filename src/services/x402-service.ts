@@ -1,5 +1,9 @@
+import { Connection, PublicKey } from "@solana/web3.js";
+import { getAccount, getAssociatedTokenAddress, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { listWallets } from "./wallet-service.ts";
 import { signTransaction } from "./signing-service.ts";
+import { resolveToken, isNativeToken } from "../config/tokens.ts";
+import { encodeERC20Transfer } from "../lib/token-encoding.ts";
 import type { Result } from "../types/index.ts";
 import { ok, err } from "../types/index.ts";
 
@@ -10,9 +14,9 @@ import { ok, err } from "../types/index.ts";
 export interface X402PaymentRequired {
   /** Network identifier (e.g. "base", "polygon", "solana") */
   network: string;
-  /** Token contract address or "native" */
+  /** Token contract address or "native" / "USDC" / "USDT" */
   token: string;
-  /** Amount in smallest unit (e.g. wei, lamports) */
+  /** Amount in smallest unit (e.g. wei, lamports, or token base units) */
   amount: string;
   /** Recipient address for the payment */
   recipient: string;
@@ -34,10 +38,24 @@ export interface X402SignResult {
   amount: string;
 }
 
+/** Solana mainnet RPC */
+const SOLANA_RPC = "https://api.mainnet-beta.solana.com";
+
+/** Map x402 network names to wallet chainId values */
+const networkToChain: Record<string, string[]> = {
+  ethereum: ["ethereum"],
+  base: ["base"],
+  polygon: ["polygon"],
+  arbitrum: ["arbitrum"],
+  optimism: ["optimism"],
+  avalanche: ["avalanche"],
+  xlayer: ["xlayer"],
+  solana: ["solana"],
+};
+
 /**
  * Sign an x402 payment.
- * Parses the PAYMENT-REQUIRED header, constructs a native transfer,
- * and signs it via the signing oracle.
+ * Supports native tokens and ERC-20/SPL stablecoins (USDC, USDT).
  */
 export async function signX402Payment(
   walletAddress: string,
@@ -52,16 +70,6 @@ export async function signX402Payment(
     return err(new Error(`Wallet not found: ${walletAddress}`));
   }
 
-  // Validate network matches wallet chain
-  const networkToChain: Record<string, string[]> = {
-    ethereum: ["ethereum"],
-    base: ["base"],
-    polygon: ["polygon"],
-    arbitrum: ["arbitrum"],
-    optimism: ["optimism"],
-    solana: ["solana"],
-  };
-
   const validChains = networkToChain[paymentRequired.network];
   if (!validChains || !validChains.includes(wallet.chainId)) {
     return err(
@@ -71,45 +79,25 @@ export async function signX402Payment(
     );
   }
 
-  // Only support native token payments for now
-  if (paymentRequired.token !== "native" && paymentRequired.token !== "") {
+  const tokenConfig = isNativeToken(paymentRequired.token)
+    ? undefined
+    : resolveToken(paymentRequired.network, paymentRequired.token);
+
+  if (!isNativeToken(paymentRequired.token) && !tokenConfig) {
     return err(
-      new Error("Only native token payments are supported. ERC-20/SPL support coming soon.")
+      new Error(
+        `Unsupported token "${paymentRequired.token}" on network "${paymentRequired.network}"`
+      )
     );
   }
 
-  // Build and sign a native transfer to the payment recipient
-  // For x402, we construct a minimal transfer transaction
   try {
     if (wallet.chainType === "evm") {
-      // EVM: Build a simple ETH transfer
-      const signResult = await signTransaction({
-        walletAddress,
-        transaction: {
-          chainType: "evm",
-          chainId: wallet.chainId,
-          to: paymentRequired.recipient as `0x${string}`,
-          value: paymentRequired.amount,
-        },
-        masterPassword,
-      });
-
-      if (!signResult.ok) return signResult;
-
-      return ok({
-        paymentSignature: Buffer.from(
-          signResult.value.signedTransaction.serialized
-        ).toString("base64"),
-        from: walletAddress,
-        network: paymentRequired.network,
-        amount: paymentRequired.amount,
-      });
+      return await signEVMPayment(walletAddress, paymentRequired, masterPassword, wallet.chainId, tokenConfig);
     }
 
     if (wallet.chainType === "solana") {
-      return err(
-        new Error("x402 Solana payment signing requires SPL USDC support (not yet implemented)")
-      );
+      return await signSolanaPayment(walletAddress, paymentRequired, masterPassword, tokenConfig);
     }
 
     return err(new Error(`x402 not supported for chain type: ${wallet.chainType}`));
@@ -118,4 +106,131 @@ export async function signX402Payment(
       new Error(`x402 signing failed: ${e instanceof Error ? e.message : String(e)}`)
     );
   }
+}
+
+/** Sign an EVM x402 payment (native ETH or ERC-20 stablecoin) */
+async function signEVMPayment(
+  walletAddress: string,
+  paymentRequired: X402PaymentRequired,
+  masterPassword: string,
+  chainId: string,
+  tokenConfig: ReturnType<typeof resolveToken>
+): Promise<Result<X402SignResult>> {
+  const recipient = paymentRequired.recipient as `0x${string}`;
+
+  const transaction = tokenConfig
+    ? {
+        chainType: "evm" as const,
+        chainId,
+        ...encodeERC20Transfer(recipient, BigInt(paymentRequired.amount), tokenConfig),
+      }
+    : {
+        chainType: "evm" as const,
+        chainId,
+        to: recipient,
+        value: paymentRequired.amount,
+      };
+
+  const signResult = await signTransaction({
+    walletAddress,
+    transaction,
+    masterPassword,
+  });
+
+  if (!signResult.ok) return signResult;
+
+  return ok({
+    paymentSignature: Buffer.from(
+      signResult.value.signedTransaction.serialized
+    ).toString("base64"),
+    from: walletAddress,
+    network: paymentRequired.network,
+    amount: paymentRequired.amount,
+  });
+}
+
+/** Sign a Solana x402 payment (native SOL or SPL stablecoin) */
+async function signSolanaPayment(
+  walletAddress: string,
+  paymentRequired: X402PaymentRequired,
+  masterPassword: string,
+  tokenConfig: ReturnType<typeof resolveToken>
+): Promise<Result<X402SignResult>> {
+  const connection = new Connection(SOLANA_RPC, "confirmed");
+  const { blockhash } = await connection.getLatestBlockhash();
+
+  if (tokenConfig) {
+    const mint = new PublicKey(tokenConfig.address);
+    const senderPubkey = new PublicKey(walletAddress);
+    const recipientPubkey = new PublicKey(paymentRequired.recipient);
+
+    const senderATA = await getAssociatedTokenAddress(
+      mint, senderPubkey, false, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
+    );
+    const recipientATA = await getAssociatedTokenAddress(
+      mint, recipientPubkey, true, TOKEN_PROGRAM_ID, ASSOCIATED_TOKEN_PROGRAM_ID
+    );
+
+    let createRecipientATA = false;
+    try {
+      await getAccount(connection, recipientATA, "confirmed", TOKEN_PROGRAM_ID);
+    } catch {
+      createRecipientATA = true;
+    }
+
+    const signResult = await signTransaction({
+      walletAddress,
+      transaction: {
+        chainType: "solana",
+        to: paymentRequired.recipient,
+        lamports: 0,
+        recentBlockhash: blockhash,
+        feePayer: walletAddress,
+        splTransfer: {
+          mint: tokenConfig.address,
+          amount: paymentRequired.amount,
+          decimals: tokenConfig.decimals,
+          senderATA: senderATA.toBase58(),
+          recipientATA: recipientATA.toBase58(),
+          createRecipientATA,
+        },
+      },
+      masterPassword,
+    });
+
+    if (!signResult.ok) return signResult;
+
+    return ok({
+      paymentSignature: Buffer.from(
+        signResult.value.signedTransaction.serialized
+      ).toString("base64"),
+      from: walletAddress,
+      network: paymentRequired.network,
+      amount: paymentRequired.amount,
+    });
+  }
+
+  // Native SOL transfer
+  const signResult = await signTransaction({
+    walletAddress,
+    transaction: {
+      chainType: "solana",
+      to: paymentRequired.recipient,
+      lamports: Number(paymentRequired.amount),
+      recentBlockhash: blockhash,
+      feePayer: walletAddress,
+    },
+    masterPassword,
+  });
+
+  if (!signResult.ok) return signResult;
+
+  return ok({
+    paymentSignature: Buffer.from(
+      signResult.value.signedTransaction.serialized
+    ).toString("base64"),
+    from: walletAddress,
+    network: paymentRequired.network,
+    amount: paymentRequired.amount,
+  });
 }

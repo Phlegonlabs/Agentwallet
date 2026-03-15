@@ -26,6 +26,13 @@ import {
   Transaction,
   Keypair,
 } from "@solana/web3.js";
+import {
+  getAssociatedTokenAddress,
+  createTransferInstruction,
+  createAssociatedTokenAccountInstruction,
+  TOKEN_PROGRAM_ID,
+  ASSOCIATED_TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 import { WalletContractV4 } from "@ton/ton";
 import { keyPairFromSeed } from "@ton/crypto";
 import { internal } from "@ton/core";
@@ -132,7 +139,7 @@ async function signEVM(
 
   const request = await walletClient.prepareTransactionRequest({
     to: tx.to,
-    value: parseEther(tx.value),
+    value: tx.data ? 0n : parseEther(tx.value),
     data: tx.data,
   });
 
@@ -151,14 +158,45 @@ async function signSolana(
   privateKey: Uint8Array
 ): Promise<SignedTransaction> {
   const keypair = Keypair.fromSecretKey(privateKey);
+  const transaction = new Transaction();
 
-  const transaction = new Transaction().add(
-    SystemProgram.transfer({
-      fromPubkey: keypair.publicKey,
-      toPubkey: new PublicKey(tx.to),
-      lamports: tx.lamports,
-    })
-  );
+  if (tx.splTransfer) {
+    const mint = new PublicKey(tx.splTransfer.mint);
+    const senderATA = new PublicKey(tx.splTransfer.senderATA);
+    const recipientATA = new PublicKey(tx.splTransfer.recipientATA);
+
+    if (tx.splTransfer.createRecipientATA) {
+      transaction.add(
+        createAssociatedTokenAccountInstruction(
+          keypair.publicKey,
+          recipientATA,
+          new PublicKey(tx.to),
+          mint,
+          TOKEN_PROGRAM_ID,
+          ASSOCIATED_TOKEN_PROGRAM_ID
+        )
+      );
+    }
+
+    transaction.add(
+      createTransferInstruction(
+        senderATA,
+        recipientATA,
+        keypair.publicKey,
+        BigInt(tx.splTransfer.amount),
+        [],
+        TOKEN_PROGRAM_ID
+      )
+    );
+  } else {
+    transaction.add(
+      SystemProgram.transfer({
+        fromPubkey: keypair.publicKey,
+        toPubkey: new PublicKey(tx.to),
+        lamports: tx.lamports,
+      })
+    );
+  }
 
   transaction.recentBlockhash = tx.recentBlockhash;
   transaction.feePayer = keypair.publicKey;

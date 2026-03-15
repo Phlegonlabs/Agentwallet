@@ -6,6 +6,7 @@ export {
   KEY_FILE_MODE,
   CONFIG_FILE_MODE,
   WALLETS_FILE_MODE,
+  SESSION_FILE_MODE,
   EVM_HD_PATH,
   SOLANA_HD_PATH,
   TON_HD_PATH,
@@ -20,3 +21,5 @@ export {
   getBackupPath,
   getSessionPath,
 } from "./paths.ts";
+export type { TokenConfig } from "./tokens.ts";
+export { TOKEN_REGISTRY, resolveToken, isNativeToken } from "./tokens.ts";

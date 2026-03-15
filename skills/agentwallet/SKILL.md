@@ -1,7 +1,7 @@
 ---
 name: agentwallet
 description: Secure multi-chain wallet for AI agents. Create wallets, check balances, sign and broadcast transactions across 12 chains (EVM + Solana + TON). Private keys never leave the vault process.
-version: 1.0.0
+version: 0.1.0
 metadata:
   {
     "openclaw": {
@@ -13,14 +13,14 @@ metadata:
         {
           "id": "agentwallet",
           "kind": "node",
-          "package": "agentwallet",
+          "package": "@phlegonlabs/agentwallet",
           "bins": ["agentwallet"],
-          "label": "Install agentwallet (npm)"
+          "label": "Install @phlegonlabs/agentwallet (npm)"
         }
       ],
       "emoji": "wallet",
       "source": {
-        "repository": "https://github.com/user/agentwallet",
+        "repository": "https://github.com/Phlegonlabs/Agentwallet",
         "license": "MIT"
       }
     }
@@ -42,6 +42,12 @@ If the vault does not exist yet:
 
 ```bash
 agentwallet init
+```
+
+On shared VPS environments, harden vault permissions:
+
+```bash
+agentwallet harden --json
 ```
 
 Then unlock to get a session token (required for non-interactive use):
@@ -124,8 +130,15 @@ echo '{"walletAddress":"0x...","transaction":{"chainType":"evm","chainId":"ether
 When you receive an HTTP 402 response with a PAYMENT-REQUIRED header:
 
 ```bash
-echo '{"network":"base","token":"native","amount":"0.001","recipient":"0x..."}' | agentwallet x402-sign --wallet <address> --token <token> --json
+# Native token payment
+echo '{"network":"base","token":"native","amount":"1000000000000000","recipient":"0x..."}' | agentwallet x402-sign --wallet <address> --token <token> --json
+
+# Stablecoin payment (USDC/USDT)
+echo '{"network":"base","token":"USDC","amount":"1000000","recipient":"0x..."}' | agentwallet x402-sign --wallet <address> --token <token> --json
 ```
+
+**Supported tokens**: `"native"` | `"USDC"` | `"USDT"`
+**Supported x402 chains**: Ethereum, Base, Polygon, Optimism, Arbitrum, Avalanche, XLayer, Solana
 
 ## Security Rules
 

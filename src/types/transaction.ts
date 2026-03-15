@@ -20,6 +20,15 @@ export interface SolanaUnsignedTransaction {
   lamports: number;
   recentBlockhash: string;
   feePayer: string;
+  /** Optional SPL token transfer (when present, lamports is ignored) */
+  splTransfer?: {
+    mint: string;
+    amount: string;
+    decimals: number;
+    senderATA: string;
+    recipientATA: string;
+    createRecipientATA: boolean;
+  };
 }
 
 /** TON unsigned transaction */
