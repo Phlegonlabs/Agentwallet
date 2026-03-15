@@ -1,0 +1,124 @@
+---
+const chains = [
+  "Ethereum", "Base", "Polygon", "Optimism",
+  "Arbitrum", "Avalanche", "XLayer", "Solana",
+];
+
+const tokens = [
+  { name: "Native", desc: "ETH, MATIC, SOL..." },
+  { name: "USDC", desc: "Circle stablecoin" },
+  { name: "USDT", desc: "Tether stablecoin" },
+];
+---
+
+<section id="x402" class="py-20 px-6 bg-slate-50">
+  <div class="max-w-5xl mx-auto">
+    <h2 class="text-2xl font-bold text-center text-slate-900 mb-3">x402 Payment Protocol</h2>
+    <p class="text-center text-slate-500 mb-14 max-w-xl mx-auto">When an API returns HTTP 402, your agent automatically signs and pays. No manual intervention needed.</p>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- Left: Flow + supported tokens/chains -->
+      <div class="space-y-6">
+        <!-- Payment flow steps -->
+        <div class="bg-white rounded-xl p-6 border border-slate-100">
+          <h3 class="font-semibold text-slate-900 mb-4">How it works</h3>
+          <div class="space-y-4">
+            <div class="flex items-start gap-3">
+              <div class="flex-shrink-0 w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">1</div>
+              <div>
+                <p class="text-sm font-medium text-slate-900">HTTP 402 received</p>
+                <p class="text-xs text-slate-500">API responds with payment requirements</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-3">
+              <div class="flex-shrink-0 w-7 h-7 rounded-full bg-slate-900 text-white flex items-center justify-center text-xs font-bold">2</div>
+              <div>
+                <p class="text-sm font-medium text-slate-900">Agent signs payment</p>
+                <p class="text-xs text-slate-500">Calls <code class="bg-slate-100 px-1 rounded font-mono">x402-sign</code> with token, amount, and recipient</p>
+              </div>
+            </div>
+            <div class="flex items-start gap-3">
+              <div class="flex-shrink-0 w-7 h-7 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs font-bold">3</div>
+              <div>
+                <p class="text-sm font-medium text-slate-900">Payment completed</p>
+                <p class="text-xs text-slate-500">Signed payload sent back, API access granted</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Supported tokens -->
+        <div class="bg-white rounded-xl p-6 border border-slate-100">
+          <h3 class="font-semibold text-slate-900 mb-3">Supported tokens</h3>
+          <div class="grid grid-cols-3 gap-3">
+            {tokens.map((t) => (
+              <div class="text-center p-3 rounded-lg bg-slate-50">
+                <p class="text-sm font-semibold text-slate-900">{t.name}</p>
+                <p class="text-xs text-slate-400 mt-0.5">{t.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <!-- Supported chains -->
+        <div class="bg-white rounded-xl p-6 border border-slate-100">
+          <h3 class="font-semibold text-slate-900 mb-3">x402-enabled chains</h3>
+          <div class="flex flex-wrap gap-2">
+            {chains.map((c) => (
+              <span class="text-xs px-3 py-1.5 rounded-full bg-slate-100 text-slate-600 font-medium">{c}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Code example -->
+      <div>
+        <div class="bg-slate-950 rounded-2xl overflow-hidden shadow-2xl shadow-slate-900/10 sticky top-8">
+          <div class="flex items-center gap-2 px-4 py-3 bg-slate-900/50 border-b border-slate-800">
+            <div class="w-3 h-3 rounded-full bg-slate-700"></div>
+            <div class="w-3 h-3 rounded-full bg-slate-700"></div>
+            <div class="w-3 h-3 rounded-full bg-slate-700"></div>
+            <span class="ml-2 text-xs text-slate-500 font-mono">x402-sign</span>
+          </div>
+          <div class="p-6 font-mono text-sm leading-relaxed space-y-6">
+            <!-- USDC payment example -->
+            <div>
+              <p class="text-slate-500 text-xs mb-2"># Sign a USDC payment on Base</p>
+              <div class="flex items-start gap-2 text-slate-400">
+                <span class="text-emerald-400 flex-shrink-0">$</span>
+                <span class="text-white break-all">echo '{"{"}
+  "network": "base",
+  "token": "USDC",
+  "amount": "1000000",
+  "recipient": "0xAPI..."
+{"}"}' | agentwallet x402-sign \
+  --wallet 0x1a2b...9f3e \
+  --token awlt_... \
+  --json</span>
+              </div>
+            </div>
+
+            <!-- Response -->
+            <div>
+              <p class="text-slate-500 text-xs mb-2"># Response</p>
+              <div class="text-slate-400">
+                <span class="text-slate-500">{"{"}</span>
+                <div class="pl-4">
+                  <p><span class="text-emerald-400">"signature"</span>: <span class="text-amber-300">"0x3f8a..."</span>,</p>
+                  <p><span class="text-emerald-400">"payload"</span>: {"{"}</p>
+                  <div class="pl-4">
+                    <p><span class="text-emerald-400">"network"</span>: <span class="text-amber-300">"base"</span>,</p>
+                    <p><span class="text-emerald-400">"token"</span>: <span class="text-amber-300">"USDC"</span>,</p>
+                    <p><span class="text-emerald-400">"amount"</span>: <span class="text-amber-300">"1000000"</span></p>
+                  </div>
+                  <p>{"}"}</p>
+                </div>
+                <span class="text-slate-500">{"}"}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>

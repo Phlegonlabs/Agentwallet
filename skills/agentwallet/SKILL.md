@@ -1,5 +1,5 @@
 ---
-name: agentwallet
+name: "@phlegonlabs/agentwallet"
 description: Secure multi-chain wallet for AI agents. Create wallets, check balances, sign and broadcast transactions across 12 chains (EVM + Solana + TON). Private keys never leave the vault process.
 version: 0.1.0
 metadata:
@@ -148,6 +148,29 @@ echo '{"network":"base","token":"USDC","amount":"1000000","recipient":"0x..."}' 
 4. **ALWAYS** lock the session when done with `agentwallet lock`
 5. Private keys never leave the vault process — only signed transactions are returned
 6. Session tokens expire automatically (default: 1 hour)
+
+## Audit Log
+
+All wallet operations are automatically logged. Query the audit log to monitor activity:
+
+```bash
+# View last 7 days of operations
+agentwallet audit-log --json
+
+# View last 24 hours
+agentwallet audit-log --days 1 --json
+
+# View only critical events (key exports, wallet deletions, restores)
+agentwallet audit-log --severity critical --json
+
+# View warnings and above (transfers, signing, unlocks)
+agentwallet audit-log --severity warn --json
+
+# Clean up old logs (>90 days)
+agentwallet audit-log --prune --json
+```
+
+Output includes `entries`, `total`, and `period`. Each entry has `timestamp`, `event`, `severity` (info/warn/critical), `status`, and `data`.
 
 ## Error Handling
 
