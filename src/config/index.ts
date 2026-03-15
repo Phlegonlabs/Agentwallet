@@ -8,6 +8,7 @@ export {
   WALLETS_FILE_MODE,
   EVM_HD_PATH,
   SOLANA_HD_PATH,
+  TON_HD_PATH,
   VAULT_VERSION,
 } from "./constants.ts";
 export {

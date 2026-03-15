@@ -14,3 +14,5 @@ export {
   labelWallet,
   deleteWallet,
 } from "./wallet-service.ts";
+export { transfer } from "./transfer-service.ts";
+export type { TransferParams, TransferResult } from "./transfer-service.ts";

@@ -11,6 +11,7 @@ import {
   exportMnemonic,
   labelWallet,
   deleteWallet,
+  transfer,
 } from "../services/index.ts";
 import { SUPPORTED_CHAINS } from "../config/index.ts";
 
@@ -63,7 +64,7 @@ program
 program
   .command("create")
   .description("Create a new wallet")
-  .option("-c, --chain <chain>", "Chain name (ethereum, polygon, bsc, base, arbitrum, optimism, avalanche, fantom, solana, all)")
+  .option("-c, --chain <chain>", "Chain name (ethereum, polygon, bsc, base, arbitrum, optimism, avalanche, fantom, xlayer, scroll, solana, ton, all)")
   .option("-n, --count <count>", "Number of wallets to create", "1")
   .action(async (opts: { chain?: string; count: string }) => {
     if (!isVaultInitialized()) {
@@ -88,7 +89,7 @@ program
         message: "Select chain:",
         choices: [
           ...SUPPORTED_CHAINS.map((c) => ({ name: c.name, value: c.id })),
-          { name: "All chains (EVM + Solana)", value: "all" },
+          { name: "All chains (EVM + Solana + TON)", value: "all" },
         ],
       });
     }
@@ -235,6 +236,53 @@ program
       process.exit(1);
     }
     console.log(`✅ Wallet ${address} securely deleted.`);
+  });
+
+// ─── transfer ─────────────────────────────────────
+program
+  .command("transfer")
+  .description("Transfer native tokens (ETH, SOL, TON, etc.)")
+  .requiredOption("-f, --from <address>", "Sender wallet address")
+  .requiredOption("-t, --to <address>", "Recipient address")
+  .requiredOption("-a, --amount <amount>", "Amount to send (e.g. 0.01)")
+  .action(async (opts: { from: string; to: string; amount: string }) => {
+    if (!isVaultInitialized()) {
+      console.error("Vault not initialized. Run 'agentwallet init' first.");
+      process.exit(1);
+    }
+
+    const masterPassword = await password({
+      message: "Enter master password:",
+    });
+
+    const confirmed = await confirm({
+      message: `Send ${opts.amount} from ${opts.from} to ${opts.to}?`,
+      default: false,
+    });
+    if (!confirmed) {
+      console.log("Cancelled.");
+      return;
+    }
+
+    console.log("Signing and broadcasting...");
+    const result = await transfer({
+      from: opts.from,
+      to: opts.to,
+      amount: opts.amount,
+      masterPassword,
+    });
+
+    if (!result.ok) {
+      console.error(result.error.message);
+      process.exit(1);
+    }
+
+    console.log(`\n✅ Transfer complete!`);
+    console.log(`   Chain:   ${result.value.chain}`);
+    console.log(`   From:    ${result.value.from}`);
+    console.log(`   To:      ${result.value.to}`);
+    console.log(`   Amount:  ${result.value.amount}`);
+    console.log(`   Tx Hash: ${result.value.txHash}`);
   });
 
 // ─── backup ────────────────────────────────────────

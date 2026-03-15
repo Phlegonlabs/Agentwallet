@@ -125,9 +125,14 @@ export async function exportPrivateKey(
   const result = await retrievePrivateKey(wallet.id, masterPassword);
   if (!result.ok) return result;
 
-  const privateKey = wallet.chainType === "solana"
-    ? toBase58(result.value)
-    : `0x${toHex(result.value)}`;
+  let privateKey: string;
+  if (wallet.chainType === "solana") {
+    privateKey = toBase58(result.value);
+  } else if (wallet.chainType === "ton") {
+    privateKey = toHex(result.value);
+  } else {
+    privateKey = `0x${toHex(result.value)}`;
+  }
 
   await zeroize(result.value);
   return ok(privateKey);

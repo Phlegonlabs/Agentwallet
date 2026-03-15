@@ -9,7 +9,10 @@ export const SUPPORTED_CHAINS: SupportedChain[] = [
   { name: "Optimism", id: "optimism", type: "evm", chainId: 10 },
   { name: "Avalanche", id: "avalanche", type: "evm", chainId: 43114 },
   { name: "Fantom", id: "fantom", type: "evm", chainId: 250 },
+  { name: "XLayer", id: "xlayer", type: "evm", chainId: 196 },
+  { name: "Scroll", id: "scroll", type: "evm", chainId: 534352 },
   { name: "Solana", id: "solana", type: "solana" },
+  { name: "TON", id: "ton", type: "ton" },
 ];
 
 export function findChain(id: string): SupportedChain | undefined {

@@ -4,7 +4,9 @@ import { HDKey } from "@scure/bip32";
 import { derivePath } from "ed25519-hd-key";
 import { Keypair } from "@solana/web3.js";
 import { privateKeyToAccount } from "viem/accounts";
-import { EVM_HD_PATH, SOLANA_HD_PATH } from "../config/index.ts";
+import { keyPairFromSeed } from "@ton/crypto";
+import { WalletContractV4 } from "@ton/ton";
+import { EVM_HD_PATH, SOLANA_HD_PATH, TON_HD_PATH } from "../config/index.ts";
 
 export interface DerivedWallet {
   address: string;
@@ -34,6 +36,21 @@ export function deriveEVMWallet(mnemonic: string, index: number): DerivedWallet 
   return {
     address: account.address,
     privateKey: hdKey.privateKey,
+    hdPath,
+  };
+}
+
+/** Derive a TON wallet from mnemonic at given index */
+export function deriveTONWallet(mnemonic: string, index: number): DerivedWallet {
+  const seed = mnemonicToSeedSync(mnemonic);
+  const hdPath = `${TON_HD_PATH}/${index}'`;
+  const derived = derivePath(hdPath, Buffer.from(seed).toString("hex"));
+  const keypair = keyPairFromSeed(Buffer.from(derived.key));
+  const wallet = WalletContractV4.create({ workchain: 0, publicKey: keypair.publicKey });
+
+  return {
+    address: wallet.address.toString({ bounceable: false }),
+    privateKey: keypair.secretKey,
     hdPath,
   };
 }

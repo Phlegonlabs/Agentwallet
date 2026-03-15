@@ -10,6 +10,7 @@ export {
   generateMnemonic,
   deriveEVMWallet,
   deriveSolanaWallet,
+  deriveTONWallet,
 } from "./key-derivation.ts";
 export type { DerivedWallet } from "./key-derivation.ts";
 export {
