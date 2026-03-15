@@ -1,0 +1,12 @@
+{
+  "version": "1.0.0",
+  "project": "agentwallet",
+  "managedFiles": [
+    ".harness/",
+    "agents/",
+    "AGENTS.md",
+    "CLAUDE.md",
+    "docs/ai/",
+    "docs/progress/"
+  ]
+}

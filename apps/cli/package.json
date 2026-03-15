@@ -1,0 +1,6 @@
+{
+  "name": "@agentwallet/cli",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AgentWallet CLI application surface"
+}
