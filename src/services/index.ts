@@ -3,6 +3,7 @@ export {
   initVault,
   loadConfig,
   retrieveMnemonic,
+  hardenVault,
 } from "./vault-service.ts";
 export { generateWallet } from "./chain-service.ts";
 export {

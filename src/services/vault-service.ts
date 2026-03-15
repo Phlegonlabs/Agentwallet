@@ -10,6 +10,7 @@ import {
   secureRead,
   exists,
   zeroize,
+  hardenPermissions,
 } from "../lib/index.ts";
 import {
   getBaseDir,
@@ -21,7 +22,7 @@ import {
   KEY_FILE_MODE,
   VAULT_VERSION,
 } from "../config/index.ts";
-import type { VaultConfig, EncryptedKeyFile, Result } from "../types/index.ts";
+import type { VaultConfig, EncryptedKeyFile, Result, HardenReport } from "../types/index.ts";
 import { ok, err } from "../types/index.ts";
 
 /** Check if vault is initialized */
@@ -170,4 +171,9 @@ export async function retrievePrivateKey(
 
   await zeroize(key);
   return result;
+}
+
+/** Audit and fix vault file/directory permissions */
+export function hardenVault(): HardenReport {
+  return hardenPermissions(getBaseDir(), getVaultDir(), VAULT_DIR_MODE, CONFIG_FILE_MODE);
 }
