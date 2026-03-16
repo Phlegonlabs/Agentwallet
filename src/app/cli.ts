@@ -14,15 +14,19 @@ import {
   unlock,
   lock,
   signX402Payment,
+  isTotpEnabled,
+  verifyTotp,
 } from "../services/index.ts";
 import { exportPrivateKey, exportMnemonic } from "../services/wallet-service.ts";
 import { SUPPORTED_CHAINS } from "../config/index.ts";
-import { hardenVault } from "../services/index.ts";
 import { backupAction, restoreAction } from "./backup-restore.ts";
 import { jsonOut } from "./json-output.ts";
 import { fail, requireVault, getAuth, readJsonInput } from "./cli-helpers.ts";
 import { logAudit } from "../lib/index.ts";
 import { registerAuditLogCommand } from "./audit-log-command.ts";
+import { registerGuardCommands } from "./guard-command.ts";
+import { registerTotpCommands } from "./totp-command.ts";
+import { registerHardenCommand } from "./harden-command.ts";
 
 const program = new Command();
 program
@@ -35,32 +39,31 @@ program
   .command("init")
   .description("Initialize the vault with a master password")
   .option("--json", "Output as JSON")
-  .action(async (opts: { json?: boolean }) => {
+  .option("--persist-key", "Write master key to disk (less secure, legacy)")
+  .action(async (opts: { json?: boolean; persistKey?: boolean }) => {
     const envPw = process.env.AGENTWALLET_PASSWORD;
     const isTTY = process.stdin.isTTY;
     const isNonInteractive = !isTTY && !envPw;
 
     if (isNonInteractive) {
-      // Non-interactive: auto-generate password, write to master.key, auto-unlock
-      const r = await initVault("", { autoPassword: true });
+      // Non-interactive: auto-generate password, return recoveryKey (no disk write by default)
+      const r = await initVault("", { autoPassword: true, persistKey: opts.persistKey });
       if (!r.ok) { logAudit("VAULT_INIT", "failure", {}); fail(r.error.message, opts.json); }
-      logAudit("VAULT_INIT", "success", { autoPassword: true });
+      logAudit("VAULT_INIT", "success", { autoPassword: true, persistKey: !!opts.persistKey });
 
-      // Auto-unlock: read back the generated password and create a session token
-      const { secureRead } = await import("../lib/index.ts");
-      const keyRead = secureRead(r.value.masterKeyPath!);
-      if (!keyRead.ok) fail("Failed to read generated master key", opts.json);
-      const tokenResult = await unlock(keyRead.value);
+      // Auto-unlock using the generated recovery key
+      const tokenResult = await unlock(r.value.recoveryKey!);
       if (!tokenResult.ok) fail(tokenResult.error.message, opts.json);
 
       if (opts.json) return jsonOut({
         status: "initialized",
         token: tokenResult.value.token,
         expiresAt: tokenResult.value.expiresAt,
-        masterKeyPath: r.value.masterKeyPath,
+        recoveryKey: r.value.recoveryKey,
       });
       process.stdout.write("Vault initialized at ~/.agentwallet/\n");
-      process.stdout.write(`   Master key written to ${r.value.masterKeyPath}\n`);
+      process.stdout.write(`   Recovery key: ${r.value.recoveryKey}\n`);
+      process.stdout.write("   SAVE THIS KEY NOW. It will not be shown again.\n");
       process.stdout.write(`   Session token: ${tokenResult.value.token}\n`);
       process.stdout.write(`   Expires at:    ${tokenResult.value.expiresAt}\n`);
       return;
@@ -193,13 +196,18 @@ program
     process.stdout.write("\n");
   });
 
-// ─── export (TTY-gated, no --token) ────────────────
+// ─── export (TTY-gated, no --token, TOTP-gated) ────────────────
 program
   .command("export <address>")
   .description("Export a wallet's private key (interactive terminal only)")
   .action(async (address: string) => {
     if (!process.stdin.isTTY) fail("'export' requires an interactive terminal (TTY)");
     const mp = await password({ message: "Enter master password:" });
+    if (isTotpEnabled()) {
+      const code = await input({ message: "Enter TOTP code:" });
+      const totpResult = await verifyTotp(code.trim());
+      if (!totpResult.ok) { logAudit("PRIVATE_KEY_EXPORT", "failure", { address, reason: "totp" }); fail(totpResult.error.message); }
+    }
     const r = await exportPrivateKey(address, mp);
     if (!r.ok) { logAudit("PRIVATE_KEY_EXPORT", "failure", { address }); fail(r.error.message); }
     logAudit("PRIVATE_KEY_EXPORT", "success", { address });
@@ -212,13 +220,18 @@ program
     await new Promise((resolve) => setTimeout(resolve, 11_000));
   });
 
-// ─── mnemonic (TTY-gated, no --token) ────────────────
+// ─── mnemonic (TTY-gated, no --token, TOTP-gated) ────────────────
 program
   .command("mnemonic")
   .description("Display your mnemonic phrase (interactive terminal only)")
   .action(async () => {
     if (!process.stdin.isTTY) fail("'mnemonic' requires an interactive terminal (TTY)");
     const mp = await password({ message: "Enter master password:" });
+    if (isTotpEnabled()) {
+      const code = await input({ message: "Enter TOTP code:" });
+      const totpResult = await verifyTotp(code.trim());
+      if (!totpResult.ok) { logAudit("MNEMONIC_EXPORT", "failure", { reason: "totp" }); fail(totpResult.error.message); }
+    }
     const r = await exportMnemonic(mp);
     if (!r.ok) { logAudit("MNEMONIC_EXPORT", "failure", {}); fail(r.error.message); }
     logAudit("MNEMONIC_EXPORT", "success", {});
@@ -286,7 +299,7 @@ program
     process.stdout.write(`Label "${name}" set for ${r.value.chainName} wallet ${address}\n`);
   });
 
-// ─── delete ────────────────────────────────────────
+// ─── delete (TOTP-gated) ────────────────────────────────────────
 program
   .command("delete <address>")
   .description("Securely delete a wallet")
@@ -296,6 +309,11 @@ program
     const wallets = listWallets();
     const w = wallets.find((w) => w.address.toLowerCase() === address.toLowerCase());
     if (!w) fail(`Wallet not found: ${address}`, opts.json);
+    if (isTotpEnabled() && process.stdin.isTTY) {
+      const code = await input({ message: "Enter TOTP code:" });
+      const totpResult = await verifyTotp(code.trim());
+      if (!totpResult.ok) { logAudit("WALLET_DELETE", "failure", { address, reason: "totp" }); fail(totpResult.error.message, opts.json); }
+    }
     if (!opts.force) {
       const ok = await confirm({ message: `Delete ${w!.chainName} wallet ${address}? This cannot be undone.`, default: false });
       if (!ok) { process.stdout.write("Cancelled.\n"); return; }
@@ -356,34 +374,17 @@ program
   });
 
 // ─── harden ──────────────────────────────────────────
-program
-  .command("harden")
-  .description("Audit and fix vault file permissions")
-  .option("--json", "Output as JSON")
-  .option("--strict", "Exit with code 1 if any permissions were fixed")
-  .action((opts: { json?: boolean; strict?: boolean }) => {
-    requireVault(opts.json);
-    const report = hardenVault();
-    logAudit("VAULT_HARDEN", "success", { totalChecked: report.totalChecked, totalFixed: report.totalFixed });
-    if (opts.json) return jsonOut(report);
-    if (report.totalChecked === 0) {
-      process.stdout.write("No vault paths to check (Windows or vault not initialized).\n");
-      return;
-    }
-    process.stdout.write(`\nVault permission audit:\n`);
-    for (const e of report.entries) {
-      const mode = e.actualMode !== null ? `0o${e.actualMode.toString(8)}` : "n/a";
-      const expected = `0o${e.expectedMode.toString(8)}`;
-      const icon = e.status === "ok" ? "  ok" : e.status === "fixed" ? "  fixed" : "  ERROR";
-      process.stdout.write(`  ${icon}  ${e.path}  (${mode} -> ${expected})\n`);
-    }
-    process.stdout.write(`\n  Checked: ${report.totalChecked}  Fixed: ${report.totalFixed}  Errors: ${report.totalErrors}\n\n`);
-    if (opts.strict && report.totalFixed > 0) process.exit(1);
-  });
+registerHardenCommand(program);
 
 // ─── backup / restore ────────────────────────────────
 program.command("backup").description("Export an encrypted backup of all wallets").action(backupAction);
 program.command("restore <file>").description("Restore wallets from an encrypted backup").action(restoreAction);
+
+// ─── guard ──────────────────────────────────────────
+registerGuardCommands(program);
+
+// ─── totp ──────────────────────────────────────────
+registerTotpCommands(program);
 
 // ─── audit-log ──────────────────────────────────────
 registerAuditLogCommand(program);

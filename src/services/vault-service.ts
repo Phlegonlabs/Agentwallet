@@ -34,12 +34,16 @@ export function isVaultInitialized(): boolean {
 }
 
 export interface InitVaultOptions {
-  /** When true, auto-generate password and write to master.key */
+  /** When true, auto-generate password and return as recoveryKey */
   autoPassword?: boolean;
+  /** When true, persist auto-generated password to master.key (legacy) */
+  persistKey?: boolean;
 }
 
 export interface InitVaultResult {
-  /** Path to auto-generated master.key (only when autoPassword) */
+  /** Recovery key returned to caller (only when autoPassword, not persisted) */
+  recoveryKey?: string;
+  /** Path to auto-generated master.key (only when persistKey is true) */
   masterKeyPath?: string;
 }
 
@@ -58,12 +62,17 @@ export async function initVault(
 
   // Auto-generate password if requested
   let password = masterPassword;
+  let recoveryKey: string | undefined;
   let masterKeyPath: string | undefined;
   if (options?.autoPassword) {
     const { randomBytes } = await import("node:crypto");
     password = randomBytes(32).toString("hex");
-    masterKeyPath = getMasterKeyPath();
-    secureWrite(masterKeyPath, password, MASTER_KEY_FILE_MODE);
+    recoveryKey = password;
+    // Only persist to disk if explicitly requested (legacy behavior)
+    if (options.persistKey) {
+      masterKeyPath = getMasterKeyPath();
+      secureWrite(masterKeyPath, password, MASTER_KEY_FILE_MODE);
+    }
   }
 
   // Generate salt and derive key
@@ -87,7 +96,7 @@ export async function initVault(
 
   await zeroize(key);
   await zeroize(mnemonicBytes);
-  return ok({ masterKeyPath });
+  return ok({ recoveryKey, masterKeyPath });
 }
 
 /** Load the vault config */

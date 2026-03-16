@@ -17,3 +17,19 @@ export const TON_HD_PATH = "m/44'/607'";
 
 /** Vault format version */
 export const VAULT_VERSION = 1;
+
+/** Transfer guard defaults */
+export const DEFAULT_PER_TX_LIMIT = "0.1";
+export const DEFAULT_DAILY_LIMIT = "1.0";
+export const DEFAULT_COOLDOWN_HOURS = 24;
+export const DEFAULT_MAX_TRANSFERS_PER_HOUR = 10;
+export const GUARDS_FILE_MODE = 0o600;
+export const TRANSFER_LOG_FILE_MODE = 0o600;
+
+/** TOTP constants */
+export const TOTP_ISSUER = "AgentWallet";
+export const TOTP_ALGORITHM = "SHA1" as const;
+export const TOTP_DIGITS = 6;
+export const TOTP_PERIOD = 30;
+export const TOTP_RECOVERY_CODE_COUNT = 8;
+export const TOTP_FILE_MODE = 0o600;

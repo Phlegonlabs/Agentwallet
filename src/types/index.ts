@@ -25,3 +25,13 @@ export {
 export type { HardenEntry, HardenReport } from "./hardening.ts";
 export type { AuditEvent, AuditSeverity, AuditEntry } from "./audit.ts";
 export { eventSeverity } from "./audit.ts";
+export type {
+  TransferGuards,
+  WhitelistEntry,
+  WhitelistConfig,
+  RateLimitConfig,
+  GuardsConfig,
+  TransferLogEntry,
+  TransferLog,
+} from "./guards.ts";
+export type { TotpConfig } from "./totp.ts";

@@ -43,3 +43,15 @@ export function getAuditLogPath(date?: string): string {
 export function getMasterKeyPath(): string {
   return join(getBaseDir(), "master.key");
 }
+
+export function getGuardsPath(): string {
+  return join(getBaseDir(), "guards.json");
+}
+
+export function getTransferLogPath(): string {
+  return join(getBaseDir(), "transfer-log.json");
+}
+
+export function getTotpConfigPath(): string {
+  return join(getBaseDir(), "totp.json");
+}

@@ -21,6 +21,8 @@ import { TonClient } from "@ton/ton";
 import { Address as TonAddress } from "@ton/core";
 import { listWallets } from "./wallet-service.ts";
 import { signTransaction } from "./signing-service.ts";
+import { checkTransferAllowed, recordTransfer } from "./guard-service.ts";
+import { logAudit } from "../lib/index.ts";
 import type {
   Result,
   UnsignedTransaction,
@@ -187,6 +189,18 @@ export async function transfer(
 ): Promise<Result<TransferResult>> {
   const { from, to, amount, masterPassword } = params;
 
+  // Step 0: Guard check — limits, whitelist, rate
+  const guardResult = checkTransferAllowed(to, amount);
+  if (!guardResult.ok) {
+    logAudit("TRANSFER_BLOCKED", "failure", {
+      from,
+      to,
+      amount,
+      reason: guardResult.error.message,
+    });
+    return guardResult;
+  }
+
   // Step 1: Build unsigned transaction
   const buildResult = await buildTransaction(from, to, amount);
   if (!buildResult.ok) return buildResult;
@@ -209,6 +223,9 @@ export async function transfer(
   const wallet = wallets.find(
     (w) => w.address.toLowerCase() === from.toLowerCase()
   );
+
+  // Record successful transfer for daily/hourly tracking
+  recordTransfer(amount);
 
   return ok({
     txHash: broadcastResult.value,

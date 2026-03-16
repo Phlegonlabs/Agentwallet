@@ -5,17 +5,19 @@ const steps = [
     title: "Install",
     desc: "Install AgentWallet globally via npm.",
     cmd: "npm install -g @phlegonlabs/agentwallet",
-    note: "No root? Use: npx @phlegonlabs/agentwallet <command>",
+    note: "No global permissions? Use: npm install @phlegonlabs/agentwallet && alias agentwallet='npx agentwallet'",
   },
   {
     num: "2",
     title: "Initialize vault",
-    desc: "Set your master password. This encrypts all private keys. Choose a strong password — you'll need it to unlock the vault and export keys.",
+    desc: "Set your master password. This encrypts all private keys. You'll receive a recovery key — save it securely.",
     cmd: "agentwallet init",
     output: [
       "Set your master password: ********",
       "Confirm master password: ********",
       '<span class="text-emerald-400">&#10003; Vault initialized at ~/.agentwallet/</span>',
+      '<span class="text-amber-300">Recovery key: rk_a8f3...x92k</span>',
+      '<span class="text-slate-500">Save this key securely — it is not stored on disk.</span>',
     ],
   },
   {
@@ -114,7 +116,7 @@ const steps = [
       </div>
       <div>
         <h3 class="font-semibold text-slate-900 text-sm">Your keys, your control</h3>
-        <p class="text-sm text-slate-500 mt-1">Agents can create wallets and sign transactions with the session token, but <span class="font-medium text-slate-700">exporting private keys or viewing your mnemonic requires your master password and a real terminal</span>. No agent can access them — this is enforced at the code level.</p>
+        <p class="text-sm text-slate-500 mt-1">Agents can create wallets and sign transactions with the session token, but <span class="font-medium text-slate-700">exporting private keys or viewing your mnemonic requires your master password, a real terminal, and TOTP code if enabled</span>. No agent can access them — this is enforced at the code level.</p>
       </div>
     </div>
   </div>

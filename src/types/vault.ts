@@ -9,6 +9,8 @@ export interface VaultConfig {
   version: number;
   /** Creation timestamp */
   createdAt: string;
+  /** TOTP configuration (optional, set when TOTP is enabled) */
+  totp?: import("./totp.ts").TotpConfig;
 }
 
 export interface EncryptedKeyFile {
