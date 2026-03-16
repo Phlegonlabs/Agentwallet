@@ -1,6 +1,6 @@
 {
   "name": "@phlegonlabs/agentwallet",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Multi-chain crypto wallet CLI — create, encrypt, and manage wallets securely on VPS or local machines",
   "type": "module",
   "workspaces": [
