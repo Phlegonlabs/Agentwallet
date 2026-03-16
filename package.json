@@ -11,7 +11,9 @@
     "agentwallet": "dist/app/cli.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "SKILL.md",
+    "skills/agentwallet/SKILL.md"
   ],
   "scripts": {
     "dev": "bun run src/app/cli.ts",

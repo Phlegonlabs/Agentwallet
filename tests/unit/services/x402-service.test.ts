@@ -176,10 +176,16 @@ describe("signX402Payment — EVM native", () => {
 
     expect(mockSignTransaction).toHaveBeenCalledTimes(1);
     const call = mockSignTransaction.mock.calls[0][0] as {
-      transaction: { chainType: string; value?: string; data?: string };
+      transaction: {
+        chainType: string;
+        value?: string;
+        valueUnit?: string;
+        data?: string;
+      };
     };
     expect(call.transaction.chainType).toBe("evm");
     expect(call.transaction.value).toBe("1000");
+    expect(call.transaction.valueUnit).toBe("base");
     expect(call.transaction.data).toBeUndefined();
   });
 
@@ -197,9 +203,10 @@ describe("signX402Payment — EVM native", () => {
 
     expect(result.ok).toBe(true);
     const call = mockSignTransaction.mock.calls[0][0] as {
-      transaction: { data?: string };
+      transaction: { data?: string; valueUnit?: string };
     };
     expect(call.transaction.data).toBeUndefined();
+    expect(call.transaction.valueUnit).toBe("base");
   });
 });
 
@@ -241,6 +248,7 @@ describe("signX402Payment — EVM ERC-20", () => {
         chainType: string;
         to: string;
         value: string;
+        valueUnit?: string;
         data: string;
       };
     };
@@ -251,6 +259,7 @@ describe("signX402Payment — EVM ERC-20", () => {
     );
     // value should be "0" for ERC-20 transfers
     expect(call.transaction.value).toBe("0");
+    expect(call.transaction.valueUnit).toBe("base");
     // data should contain transfer function selector
     expect(call.transaction.data.startsWith("0xa9059cbb")).toBe(true);
   });

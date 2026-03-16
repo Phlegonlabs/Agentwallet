@@ -1,7 +1,7 @@
+import { createHash } from "node:crypto";
 import {
   createPublicClient,
   http,
-  parseEther,
   type Chain,
 } from "viem";
 import {
@@ -16,7 +16,7 @@ import {
   xLayer,
   scroll,
 } from "viem/chains";
-import { Connection, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
+import { Connection, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { TonClient } from "@ton/ton";
 import { Address as TonAddress } from "@ton/core";
 import { listWallets } from "./wallet-service.ts";
@@ -57,16 +57,24 @@ export interface TransferParams {
   to: string;
   /** Amount in human-readable units (e.g. "0.1" = 0.1 ETH/SOL/TON) */
   amount: string;
-  /** Master password to decrypt private key */
-  masterPassword: string;
+  /** Password/recovery key to decrypt private key */
+  password: string;
 }
 
 export interface TransferResult {
-  txHash: string;
   chain: string;
   from: string;
   to: string;
   amount: string;
+  status: "broadcasted";
+  submissionId: string;
+  txHash?: string;
+}
+
+export interface BroadcastResult {
+  status: "broadcasted";
+  submissionId: string;
+  txHash?: string;
 }
 
 /**
@@ -95,6 +103,7 @@ export async function buildTransaction(
           chainId: wallet.chainId,
           to: to as `0x${string}`,
           value: amount,
+          valueUnit: "human",
         });
       case "solana": {
         const connection = new Connection(SOLANA_RPC, "confirmed");
@@ -141,7 +150,7 @@ export async function buildTransaction(
  */
 export async function broadcastTransaction(
   signed: SignedTransaction
-): Promise<Result<string>> {
+): Promise<Result<BroadcastResult>> {
   try {
     switch (signed.chainType) {
       case "evm": {
@@ -153,20 +162,30 @@ export async function broadcastTransaction(
         const txHash = await client.sendRawTransaction({
           serializedTransaction: signed.serialized as `0x${string}`,
         });
-        return ok(txHash);
+        return ok({
+          status: "broadcasted",
+          submissionId: txHash,
+          txHash,
+        });
       }
       case "solana": {
         const connection = new Connection(SOLANA_RPC, "confirmed");
         const txBuffer = Buffer.from(signed.serialized, "base64");
         const txHash = await connection.sendRawTransaction(txBuffer);
-        return ok(txHash);
+        return ok({
+          status: "broadcasted",
+          submissionId: txHash,
+          txHash,
+        });
       }
       case "ton": {
         const client = new TonClient({ endpoint: TON_RPC });
         const boc = Buffer.from(signed.serialized, "base64");
-        // sendFile expects a Cell, but we can use the raw API
         await client.sendFile(boc);
-        return ok(`ton_boc_${Date.now()}`);
+        return ok({
+          status: "broadcasted",
+          submissionId: `boc_${createHash("sha256").update(boc).digest("hex")}`,
+        });
       }
       default:
         return err(new Error(`Unsupported chain type: ${signed.chainType}`));
@@ -187,7 +206,7 @@ export async function broadcastTransaction(
 export async function transfer(
   params: TransferParams
 ): Promise<Result<TransferResult>> {
-  const { from, to, amount, masterPassword } = params;
+  const { from, to, amount, password } = params;
 
   // Step 0: Guard check — limits, whitelist, rate
   const guardResult = checkTransferAllowed(to, amount);
@@ -209,7 +228,7 @@ export async function transfer(
   const signResult = await signTransaction({
     walletAddress: from,
     transaction: buildResult.value,
-    masterPassword,
+    password,
   });
   if (!signResult.ok) return signResult;
 
@@ -228,10 +247,12 @@ export async function transfer(
   recordTransfer(amount);
 
   return ok({
-    txHash: broadcastResult.value,
     chain: wallet?.chainId ?? "unknown",
     from,
     to,
     amount,
+    status: broadcastResult.value.status,
+    submissionId: broadcastResult.value.submissionId,
+    txHash: broadcastResult.value.txHash,
   });
 }
