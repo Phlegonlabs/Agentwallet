@@ -8,12 +8,18 @@ export type AuditEvent =
   | "PRIVATE_KEY_EXPORT"
   | "MNEMONIC_EXPORT"
   | "TRANSFER"
+  | "TRANSFER_BLOCKED"
   | "SIGN"
   | "X402_SIGN"
   | "BALANCE_QUERY"
   | "VAULT_HARDEN"
   | "BACKUP_CREATE"
-  | "BACKUP_RESTORE";
+  | "BACKUP_RESTORE"
+  | "WHITELIST_ADD"
+  | "WHITELIST_REMOVE"
+  | "GUARD_UPDATE"
+  | "TOTP_ENABLE"
+  | "TOTP_DISABLE";
 
 export type AuditSeverity = "info" | "warn" | "critical";
 
@@ -30,13 +36,19 @@ const CRITICAL_EVENTS: ReadonlySet<AuditEvent> = new Set([
   "MNEMONIC_EXPORT",
   "WALLET_DELETE",
   "BACKUP_RESTORE",
+  "TOTP_ENABLE",
+  "TOTP_DISABLE",
 ]);
 
 const WARN_EVENTS: ReadonlySet<AuditEvent> = new Set([
   "TRANSFER",
+  "TRANSFER_BLOCKED",
   "SIGN",
   "X402_SIGN",
   "SESSION_UNLOCK",
+  "WHITELIST_ADD",
+  "WHITELIST_REMOVE",
+  "GUARD_UPDATE",
 ]);
 
 export function eventSeverity(event: AuditEvent): AuditSeverity {

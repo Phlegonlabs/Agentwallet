@@ -9,8 +9,16 @@ const features = [
     desc: "Private keys encrypted with Argon2id + XSalsa20-Poly1305. Files locked to chmod 400. Military-grade protection on your own machine.",
   },
   {
-    title: "Interactive CLI",
-    desc: "Choose your chain from an interactive menu or use flags for automation. Batch create multiple wallets with --count.",
+    title: "Transfer guards",
+    desc: "Set per-transaction and daily transfer limits. Rate limiting prevents runaway transfers. Optional address whitelist with 24h cooldown.",
+  },
+  {
+    title: "TOTP two-factor auth",
+    desc: "Gate sensitive operations like export, mnemonic, and delete behind an authenticator code. One toggle to enable.",
+  },
+  {
+    title: "Recovery key flow",
+    desc: "Init returns a recovery key — no plaintext master password stored on disk. Secure by default for agent deployments.",
   },
   {
     title: "LLM isolation",
@@ -18,21 +26,28 @@ const features = [
   },
   {
     title: "Secure export",
-    desc: "Export keys with password verification. Terminal auto-clears after 10 seconds. No accidental exposure.",
+    desc: "Export keys with password verification + TOTP if enabled. Terminal auto-clears after 10 seconds. No accidental exposure.",
   },
   {
     title: "Backup & restore",
     desc: "Export encrypted backups. Restore on any machine. Your vault travels with you, safely.",
+  },
+  {
+    title: "Interactive CLI",
+    desc: "Choose your chain from an interactive menu or use flags for automation. Batch create multiple wallets with --count.",
   },
 ];
 
 const icons = [
   "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5", // layers
   "M3 11h18v11a2 2 0 01-2 2H5a2 2 0 01-2-2V11zm4 0V7a5 5 0 0110 0v4", // lock
-  "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z", // terminal
+  "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z", // shield
+  "M12 1v4m0 14v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M1 12h4m14 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83", // key/sun
+  "M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.78 7.78 5.5 5.5 0 017.78-7.78zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4", // key
   "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z", // eye
   "M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4m14-7l-5-5-5 5m5-5v12", // upload
   "M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z", // save
+  "M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z", // terminal
 ];
 ---
 

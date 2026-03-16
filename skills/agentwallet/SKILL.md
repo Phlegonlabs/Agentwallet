@@ -41,8 +41,12 @@ You are an AI agent with access to the `agentwallet` CLI. Use it to securely man
 If the vault does not exist yet:
 
 ```bash
-agentwallet init
+agentwallet init --json
 ```
+
+This returns `{"status":"initialized","token":"awlt_...","expiresAt":"...","recoveryKey":"a7f2d9..."}`.
+
+**CRITICAL**: The `recoveryKey` is only shown ONCE. Send it to the user via private/direct message — **NEVER post it in a group chat or public channel.** The user must save it to recover their vault.
 
 On shared VPS environments, harden vault permissions:
 
@@ -50,13 +54,29 @@ On shared VPS environments, harden vault permissions:
 agentwallet harden --json
 ```
 
-Then unlock to get a session token (required for non-interactive use):
+## Transfer Guards
+
+Transfers are protected by configurable limits. View current settings:
 
 ```bash
-agentwallet unlock --json
+agentwallet guard status --json
 ```
 
-This returns `{"token":"awlt_...","expiresAt":"..."}`. Save the token for subsequent commands.
+Set transfer limits:
+
+```bash
+agentwallet guard set-limit --per-tx 0.1 --daily 1.0 --token <token> --json
+```
+
+Manage whitelist:
+
+```bash
+# Add address (24h cooldown before first transfer)
+agentwallet guard whitelist-add <address> --label "My CEX" --token <token> --json
+
+# Enable whitelist enforcement (only whitelisted addresses allowed)
+agentwallet guard whitelist-enable --token <token> --json
+```
 
 ## Session Management
 
@@ -148,6 +168,9 @@ echo '{"network":"base","token":"USDC","amount":"1000000","recipient":"0x..."}' 
 4. **ALWAYS** lock the session when done with `agentwallet lock`
 5. Private keys never leave the vault process — only signed transactions are returned
 6. Session tokens expire automatically (default: 1 hour)
+7. **NEVER** send recovery keys to group chats — always use direct/private messages
+8. Transfer guards (limits, whitelist, rate limiting) protect against token theft
+9. TOTP 2FA can be enabled for high-risk operations (export, mnemonic, delete)
 
 ## Audit Log
 
