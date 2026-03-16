@@ -6,6 +6,7 @@ export interface EVMUnsignedTransaction {
   chainId: string;
   to: `0x${string}`;
   value: string;
+  valueUnit?: "human" | "base";
   data?: `0x${string}`;
   nonce?: number;
   gasLimit?: bigint;
@@ -57,7 +58,7 @@ export interface SignedTransaction {
 export interface SignRequest {
   walletAddress: string;
   transaction: UnsignedTransaction;
-  masterPassword: string;
+  password: string;
 }
 
 /** Result of a signing operation */

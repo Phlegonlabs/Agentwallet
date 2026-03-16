@@ -12,7 +12,7 @@
 
 ## What is AgentWallet?
 
-AgentWallet is a self-custodial, multi-chain crypto wallet you control entirely from the command line. It generates HD wallets across 12 chains, encrypts private keys locally, and exposes a session-token API so AI agents can sign transactions without ever touching your master password.
+AgentWallet is a self-custodial, multi-chain crypto wallet you control entirely from the command line. It generates HD wallets across 12 chains, encrypts private keys locally, and exposes a session-token API so AI agents can sign transactions without ever touching your recovery key.
 
 - **Self-custodial** -- keys never leave your machine
 - **12 chains** -- EVM (Ethereum, L2s) + Solana + TON
@@ -50,10 +50,10 @@ Create wallets on all chains at once with `agentwallet create --chain all`.
 
 - **Multi-chain HD wallets** -- BIP-39 mnemonic, BIP-32 derivation, Ed25519 for Solana/TON
 - **Encrypted storage** -- Argon2id key derivation + XSalsa20-Poly1305 (libsodium)
-- **Session-based auth** -- `unlock` produces a time-limited token agents can use instead of the master password
+- **Session-based auth** -- `unlock` produces a time-limited token agents can use instead of the recovery key
 - **Transfer guards** -- per-tx and daily transfer limits, rate limiting, optional address whitelist
 - **TOTP two-factor authentication** -- export, mnemonic, and delete gated by authenticator code
-- **Recovery key flow** -- `init` returns a recovery key; no plaintext master key on disk
+- **Recovery key flow** -- `init` auto-generates a recovery key; no user-chosen password needed
 - **x402 payment protocol** -- sign HTTP 402 payment headers for USDC/USDT across 8 networks
 - **Operation audit log** -- every wallet operation is logged with severity, timestamps, and metadata
 - **Backup & restore** -- encrypted vault export/import for migration or disaster recovery
@@ -64,7 +64,7 @@ Create wallets on all chains at once with `agentwallet create --chain all`.
 
 | Command | Description |
 |---------|-------------|
-| `init` | Initialize the vault with a master password |
+| `init` | Initialize the vault and generate a recovery key |
 | `unlock` | Unlock vault and get a session token (TTL configurable) |
 | `lock` | Destroy the active session |
 | `create` | Create a new wallet (`--chain ethereum`, `--chain all`, `--count N`) |
@@ -107,7 +107,7 @@ AgentWallet uses seven layers of protection:
 
 ### Agent Permission Model
 
-| Operation | Master Password | Session Token |
+| Operation | Recovery Key | Session Token |
 |-----------|:-:|:-:|
 | Create / list / label / delete wallets | Yes | Yes |
 | Sign transactions, x402 payments | Yes | Yes |
@@ -205,7 +205,7 @@ agentwallet/
 
 ## AgentWallet 是什么？
 
-AgentWallet 是一个自托管的多链加密钱包，完全通过命令行控制。它可以在 12 条链上生成 HD 钱包，在本地加密私钥，并提供 session token API，让 AI 代理无需接触主密码即可签署交易。
+AgentWallet 是一个自托管的多链加密钱包，完全通过命令行控制。它可以在 12 条链上生成 HD 钱包，在本地加密私钥，并提供 session token API，让 AI 代理无需接触恢复密钥即可签署交易。
 
 - **自托管** —— 私钥永远不离开你的机器
 - **12 条链** —— EVM（Ethereum 及 L2）+ Solana + TON
@@ -243,10 +243,10 @@ agentwallet balance <地址>
 
 - **多链 HD 钱包** —— BIP-39 助记词、BIP-32 派生、Solana/TON 使用 Ed25519
 - **加密存储** —— Argon2id 密钥派生 + XSalsa20-Poly1305（libsodium）
-- **基于会话的认证** —— `unlock` 生成限时 token，代理可用其代替主密码
+- **基于会话的认证** —— `unlock` 生成限时 token，代理可用其代替恢复密钥
 - **转账守卫** —— 单笔/每日转账限额、速率限制、可选地址白名单
 - **TOTP 双因素认证** —— 导出、助记词、删除操作需验证器代码
-- **恢复密钥流程** —— `init` 返回恢复密钥；磁盘上不存储明文主密码
+- **恢复密钥流程** —— `init` 自动生成恢复密钥；无需用户设置密码
 - **x402 支付协议** —— 在 8 个网络上签署 USDC/USDT 的 HTTP 402 支付头
 - **操作审计日志** —— 每个钱包操作都带有严重级别、时间戳和元数据
 - **备份与恢复** —— 加密的 vault 导出/导入，用于迁移或灾难恢复
@@ -257,7 +257,7 @@ agentwallet balance <地址>
 
 | 命令 | 说明 |
 |------|------|
-| `init` | 使用主密码初始化 vault |
+| `init` | 初始化 vault 并生成恢复密钥 |
 | `unlock` | 解锁 vault 并获取 session token（TTL 可配置） |
 | `lock` | 销毁当前会话 |
 | `create` | 创建新钱包（`--chain ethereum`、`--chain all`、`--count N`） |
@@ -300,7 +300,7 @@ AgentWallet 使用七层保护：
 
 ### 代理权限模型
 
-| 操作 | 主密码 | Session Token |
+| 操作 | 恢复密钥 | Session Token |
 |------|:-:|:-:|
 | 创建 / 列出 / 标记 / 删除钱包 | 支持 | 支持 |
 | 签署交易、x402 支付 | 支持 | 支持 |
@@ -412,7 +412,7 @@ agentwallet/
 
 ## AgentWallet 是什麼？
 
-AgentWallet 是一個自託管的多鏈加密錢包，完全透過命令列控制。它可以在 12 條鏈上產生 HD 錢包，在本地加密私鑰，並提供 session token API，讓 AI 代理無需接觸主密碼即可簽署交易。
+AgentWallet 是一個自託管的多鏈加密錢包，完全透過命令列控制。它可以在 12 條鏈上產生 HD 錢包，在本地加密私鑰，並提供 session token API，讓 AI 代理無需接觸復原金鑰即可簽署交易。
 
 - **自託管** —— 私鑰永遠不離開你的機器
 - **12 條鏈** —— EVM（Ethereum 及 L2）+ Solana + TON
@@ -450,10 +450,10 @@ agentwallet balance <地址>
 
 - **多鏈 HD 錢包** —— BIP-39 助記詞、BIP-32 衍生、Solana/TON 使用 Ed25519
 - **加密儲存** —— Argon2id 金鑰衍生 + XSalsa20-Poly1305（libsodium）
-- **基於工作階段的認證** —— `unlock` 產生限時 token，代理可用其代替主密碼
+- **基於工作階段的認證** —— `unlock` 產生限時 token，代理可用其代替復原金鑰
 - **轉帳守衛** —— 單筆/每日轉帳限額、速率限制、可選地址白名單
 - **TOTP 雙因素認證** —— 匯出、助記詞、刪除操作需驗證器代碼
-- **復原金鑰流程** —— `init` 回傳復原金鑰；磁碟上不儲存明文主密碼
+- **復原金鑰流程** —— `init` 自動產生復原金鑰；無需使用者設定密碼
 - **x402 支付協議** —— 在 8 個網路上簽署 USDC/USDT 的 HTTP 402 支付頭
 - **操作稽核日誌** —— 每個錢包操作都帶有嚴重等級、時間戳和中繼資料
 - **備份與還原** —— 加密的 vault 匯出/匯入，用於遷移或災難復原
@@ -464,7 +464,7 @@ agentwallet balance <地址>
 
 | 命令 | 說明 |
 |------|------|
-| `init` | 使用主密碼初始化 vault |
+| `init` | 初始化 vault 並產生復原金鑰 |
 | `unlock` | 解鎖 vault 並取得 session token（TTL 可設定） |
 | `lock` | 銷毀目前工作階段 |
 | `create` | 建立新錢包（`--chain ethereum`、`--chain all`、`--count N`） |
@@ -507,7 +507,7 @@ AgentWallet 使用七層保護：
 
 ### 代理權限模型
 
-| 操作 | 主密碼 | Session Token |
+| 操作 | 復原金鑰 | Session Token |
 |------|:-:|:-:|
 | 建立 / 列出 / 標記 / 刪除錢包 | 支援 | 支援 |
 | 簽署交易、x402 支付 | 支援 | 支援 |

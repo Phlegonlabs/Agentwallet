@@ -1,9 +1,7 @@
 import {
   createWalletClient,
-  createPublicClient,
   http,
   parseEther,
-  serializeTransaction,
   type Chain,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -27,7 +25,6 @@ import {
   Keypair,
 } from "@solana/web3.js";
 import {
-  getAssociatedTokenAddress,
   createTransferInstruction,
   createAssociatedTokenAccountInstruction,
   TOKEN_PROGRAM_ID,
@@ -36,11 +33,10 @@ import {
 import { WalletContractV4 } from "@ton/ton";
 import { keyPairFromSeed } from "@ton/crypto";
 import { internal } from "@ton/core";
-import { TonClient } from "@ton/ton";
 import { listWallets } from "./wallet-service.ts";
 import { retrievePrivateKey } from "./vault-service.ts";
 import { resolveKey } from "./session-service.ts";
-import { withSecureScope, toHex, zeroize } from "../lib/index.ts";
+import { withSecureScope, zeroize } from "../lib/index.ts";
 import type {
   Result,
   SignRequest,
@@ -77,7 +73,7 @@ const TON_RPC = "https://toncenter.com/api/v2/jsonRPC";
 export async function signTransaction(
   request: SignRequest
 ): Promise<Result<SignResult>> {
-  const { walletAddress, transaction, masterPassword } = request;
+  const { walletAddress, transaction, password } = request;
 
   const wallets = listWallets();
   const wallet = wallets.find(
@@ -88,7 +84,7 @@ export async function signTransaction(
   }
 
   // Resolve auth to derived key (handles both password and session token)
-  const keyResult = await resolveKey(masterPassword);
+  const keyResult = await resolveKey(password);
   if (!keyResult.ok) {
     return err(new Error(`Signing failed: ${keyResult.error.message}`));
   }
@@ -97,7 +93,7 @@ export async function signTransaction(
   try {
     const signed = await withSecureScope(
       () => retrievePrivateKey(wallet.id, derivedKey).then((r) => {
-        if (!r.ok) throw new Error("Wrong password or corrupted vault.");
+        if (!r.ok) throw new Error("Wrong recovery key or corrupted vault.");
         return r.value;
       }),
       async (privateKey) => {
@@ -149,7 +145,11 @@ async function signEVM(
 
   const request = await walletClient.prepareTransactionRequest({
     to: tx.to,
-    value: tx.data ? 0n : parseEther(tx.value),
+    value: tx.data
+      ? 0n
+      : tx.valueUnit === "base"
+        ? BigInt(tx.value)
+        : parseEther(tx.value),
     data: tx.data,
   });
 

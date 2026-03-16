@@ -60,7 +60,7 @@ const networkToChain: Record<string, string[]> = {
 export async function signX402Payment(
   walletAddress: string,
   paymentRequired: X402PaymentRequired,
-  masterPassword: string
+  password: string
 ): Promise<Result<X402SignResult>> {
   const wallets = listWallets();
   const wallet = wallets.find(
@@ -93,11 +93,11 @@ export async function signX402Payment(
 
   try {
     if (wallet.chainType === "evm") {
-      return await signEVMPayment(walletAddress, paymentRequired, masterPassword, wallet.chainId, tokenConfig);
+      return await signEVMPayment(walletAddress, paymentRequired, password, wallet.chainId, tokenConfig);
     }
 
     if (wallet.chainType === "solana") {
-      return await signSolanaPayment(walletAddress, paymentRequired, masterPassword, tokenConfig);
+      return await signSolanaPayment(walletAddress, paymentRequired, password, tokenConfig);
     }
 
     return err(new Error(`x402 not supported for chain type: ${wallet.chainType}`));
@@ -112,29 +112,31 @@ export async function signX402Payment(
 async function signEVMPayment(
   walletAddress: string,
   paymentRequired: X402PaymentRequired,
-  masterPassword: string,
+  password: string,
   chainId: string,
   tokenConfig: ReturnType<typeof resolveToken>
 ): Promise<Result<X402SignResult>> {
   const recipient = paymentRequired.recipient as `0x${string}`;
 
   const transaction = tokenConfig
-    ? {
-        chainType: "evm" as const,
-        chainId,
-        ...encodeERC20Transfer(recipient, BigInt(paymentRequired.amount), tokenConfig),
-      }
-    : {
-        chainType: "evm" as const,
-        chainId,
-        to: recipient,
-        value: paymentRequired.amount,
-      };
+      ? {
+          chainType: "evm" as const,
+          chainId,
+          valueUnit: "base" as const,
+          ...encodeERC20Transfer(recipient, BigInt(paymentRequired.amount), tokenConfig),
+        }
+      : {
+          chainType: "evm" as const,
+          chainId,
+          to: recipient,
+          value: paymentRequired.amount,
+          valueUnit: "base" as const,
+        };
 
   const signResult = await signTransaction({
     walletAddress,
     transaction,
-    masterPassword,
+    password,
   });
 
   if (!signResult.ok) return signResult;
@@ -153,7 +155,7 @@ async function signEVMPayment(
 async function signSolanaPayment(
   walletAddress: string,
   paymentRequired: X402PaymentRequired,
-  masterPassword: string,
+  password: string,
   tokenConfig: ReturnType<typeof resolveToken>
 ): Promise<Result<X402SignResult>> {
   const connection = new Connection(SOLANA_RPC, "confirmed");
@@ -195,7 +197,7 @@ async function signSolanaPayment(
           createRecipientATA,
         },
       },
-      masterPassword,
+      password,
     });
 
     if (!signResult.ok) return signResult;
@@ -220,7 +222,7 @@ async function signSolanaPayment(
       recentBlockhash: blockhash,
       feePayer: walletAddress,
     },
-    masterPassword,
+    password,
   });
 
   if (!signResult.ok) return signResult;
