@@ -32,7 +32,7 @@ import {
  * so the token is required to decrypt it later.
  */
 export async function unlock(
-  masterPassword: string,
+  password: string,
   ttlSeconds: number = SESSION_DEFAULT_TTL_SECONDS
 ): Promise<Result<SessionTokenResult>> {
   // Validate TTL
@@ -42,10 +42,10 @@ export async function unlock(
     );
   }
 
-  // Verify password by attempting to retrieve mnemonic
-  const mnemonicResult = await retrieveMnemonic(masterPassword);
+  // Verify recovery key by attempting to retrieve mnemonic
+  const mnemonicResult = await retrieveMnemonic(password);
   if (!mnemonicResult.ok) {
-    return err(new Error("Invalid master password"));
+    return err(new Error("Invalid recovery key"));
   }
 
   // Load vault config for salt
@@ -53,9 +53,9 @@ export async function unlock(
   if (!configResult.ok) return configResult;
   const config = configResult.value;
 
-  // Derive the encryption key from the master password
+  // Derive the encryption key from the recovery key
   const salt = await fromBase64(config.salt);
-  const derivedKey = await deriveKey(masterPassword, salt);
+  const derivedKey = await deriveKey(password, salt);
 
   try {
     await sodium.ready;
@@ -187,9 +187,9 @@ export function lock(): Result<void> {
 }
 
 /**
- * Resolve master password from either --token flag or interactive prompt.
+ * Resolve auth from either --token flag or interactive prompt.
  * If a token is provided, validates the session; otherwise uses the password directly.
- * Returns the master password string (for commands that need it).
+ * Returns the password/recovery key string (for commands that need it).
  */
 export async function resolveAuth(
   token: string | undefined,
@@ -197,7 +197,7 @@ export async function resolveAuth(
 ): Promise<Result<string>> {
   if (token) {
     // Token-based auth: we validate the session exists and is valid,
-    // but we can't recover the master password from the token.
+    // but we can't recover the recovery key from the token.
     // Instead, commands that use resolveAuth should use resolveKey for signing.
     const sessionValid = await validateSession(token);
     if (!sessionValid.ok) return sessionValid;
@@ -210,7 +210,7 @@ export async function resolveAuth(
 }
 
 /**
- * Get the derived encryption key from either a token or a master password.
+ * Get the derived encryption key from either a token or a recovery key.
  * The caller is responsible for zeroizing the returned key.
  */
 export async function resolveKey(
@@ -221,7 +221,7 @@ export async function resolveKey(
     return validateSession(token);
   }
 
-  // It's a master password — derive the key
+  // It's a recovery key — derive the key
   const configResult = loadConfig();
   if (!configResult.ok) return configResult;
 

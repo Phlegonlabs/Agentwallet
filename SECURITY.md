@@ -45,7 +45,7 @@ We will coordinate with you on disclosure timing. Please do not disclose the vul
 - **Iterations**: 3
 - **Output**: 256-bit derived key
 
-The master password is never stored. A random salt is generated at vault initialization and stored in `config.json`. The derived key is used only in-memory and zeroed immediately after use.
+The recovery key is never stored on disk. A random salt is generated at vault initialization and stored in `config.json`. The derived key is used only in-memory and zeroed immediately after use.
 
 ### Encryption
 
@@ -108,7 +108,7 @@ On Windows, file permissions are not enforced at the OS level — encryption is 
 
 | Threat | Mitigation |
 |--------|------------|
-| Brute-force master password | Argon2id with 256 MB memory makes GPU attacks impractical |
+| Brute-force recovery key | Argon2id with 256 MB memory makes GPU attacks impractical |
 | VPS co-tenant file access | File permissions `0o700`/`0o400` prevent other users from reading vault |
 | Memory dump / core dump | Keys zeroed after use; signing is in-process only |
 | Stolen session token | Time-limited (max 24h); `lock` command destroys immediately |
@@ -119,7 +119,7 @@ On Windows, file permissions are not enforced at the OS level — encryption is 
 
 - **Root/admin compromise** — if the attacker has root, all bets are off
 - **Hardware keyloggers** — physical access attacks are out of scope
-- **Social engineering** — tricking the user into revealing their password
+- **Social engineering** — tricking the user into revealing their recovery key
 - **Supply chain attacks on dependencies** — mitigated by auditing, but not fully preventable
 
 ---

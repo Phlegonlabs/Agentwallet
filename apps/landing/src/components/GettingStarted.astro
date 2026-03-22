@@ -10,14 +10,13 @@ const steps = [
   {
     num: "2",
     title: "Initialize vault",
-    desc: "Set your master password. This encrypts all private keys. You'll receive a recovery key — save it securely.",
+    desc: "Generate a recovery key that encrypts all private keys. Save it securely — it is only shown once.",
     cmd: "agentwallet init",
     output: [
-      "Set your master password: ********",
-      "Confirm master password: ********",
       '<span class="text-emerald-400">&#10003; Vault initialized at ~/.agentwallet/</span>',
-      '<span class="text-amber-300">Recovery key: rk_a8f3...x92k</span>',
-      '<span class="text-slate-500">Save this key securely — it is not stored on disk.</span>',
+      '<span class="text-amber-300">Recovery key: a7f2d9e1...3b8c4f0a</span>',
+      '<span class="text-slate-500">SAVE THIS RECOVERY KEY NOW. It will not be shown again.</span>',
+      '<span class="text-slate-500">Session token: awlt_a8f3...x92k</span>',
     ],
   },
   {
@@ -36,10 +35,10 @@ const steps = [
   {
     num: "4",
     title: "Unlock & get token",
-    desc: "Unlock the vault with your master password. You get a temporary session token (expires in 1 hour) — give this to your AI agent.",
+    desc: "Unlock the vault with your recovery key. You get a temporary session token (expires in 1 hour) — give this to your AI agent.",
     cmd: "agentwallet unlock --json",
     output: [
-      "Enter master password: ********",
+      "Enter recovery key: ********",
       '{',
       '  <span class="text-emerald-400">"token"</span>: <span class="text-amber-300">"awlt_a8f3...x92k"</span>,',
       '  <span class="text-emerald-400">"expiresAt"</span>: <span class="text-amber-300">"2026-03-15T11:30:00Z"</span>',
@@ -61,7 +60,7 @@ const steps = [
 <section id="getting-started" class="py-20 px-6 bg-slate-50">
   <div class="max-w-3xl mx-auto">
     <h2 class="text-2xl font-bold text-center text-slate-900 mb-3">Getting started</h2>
-    <p class="text-center text-slate-500 mb-14 max-w-xl mx-auto">From install to agent-ready in 5 steps. Your master password stays with you — your agent only gets a temporary token.</p>
+    <p class="text-center text-slate-500 mb-14 max-w-xl mx-auto">From install to agent-ready in 5 steps. Your recovery key stays with you — your agent only gets a temporary token.</p>
 
     <div class="space-y-6">
       {steps.map((step) => (
@@ -116,7 +115,7 @@ const steps = [
       </div>
       <div>
         <h3 class="font-semibold text-slate-900 text-sm">Your keys, your control</h3>
-        <p class="text-sm text-slate-500 mt-1">Agents can create wallets and sign transactions with the session token, but <span class="font-medium text-slate-700">exporting private keys or viewing your mnemonic requires your master password, a real terminal, and TOTP code if enabled</span>. No agent can access them — this is enforced at the code level.</p>
+        <p class="text-sm text-slate-500 mt-1">Agents can create wallets and sign transactions with the session token, but <span class="font-medium text-slate-700">exporting private keys or viewing your mnemonic requires your recovery key, a real terminal, and TOTP code if enabled</span>. No agent can access them — this is enforced at the code level.</p>
       </div>
     </div>
   </div>

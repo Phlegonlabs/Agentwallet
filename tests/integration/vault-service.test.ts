@@ -20,19 +20,24 @@ afterAll(() => {
 });
 
 describe("vault-service", () => {
+  let recoveryKey: string;
+
   test("init -> storeMnemonic -> retrieveMnemonic roundtrip", async () => {
     const { initVault, isVaultInitialized, storeMnemonic, retrieveMnemonic } = await import("../../src/services/vault-service.ts");
 
     expect(isVaultInitialized()).toBe(false);
 
-    const initResult = await initVault("test-master-password");
+    const initResult = await initVault();
     expect(initResult.ok).toBe(true);
     expect(isVaultInitialized()).toBe(true);
+    if (initResult.ok) {
+      recoveryKey = initResult.value.recoveryKey;
+    }
 
-    const storeResult = await storeMnemonic("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about", "test-master-password");
+    const storeResult = await storeMnemonic("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about", recoveryKey);
     expect(storeResult.ok).toBe(true);
 
-    const retrieveResult = await retrieveMnemonic("test-master-password");
+    const retrieveResult = await retrieveMnemonic(recoveryKey);
     expect(retrieveResult.ok).toBe(true);
     if (retrieveResult.ok) {
       expect(retrieveResult.value).toBe("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about");
@@ -50,10 +55,10 @@ describe("vault-service", () => {
     const { storePrivateKey, retrievePrivateKey } = await import("../../src/services/vault-service.ts");
 
     const fakeKey = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32]);
-    const storeResult = await storePrivateKey("test-wallet-id", fakeKey, "test-master-password");
+    const storeResult = await storePrivateKey("test-wallet-id", fakeKey, recoveryKey);
     expect(storeResult.ok).toBe(true);
 
-    const retrieveResult = await retrievePrivateKey("test-wallet-id", "test-master-password");
+    const retrieveResult = await retrievePrivateKey("test-wallet-id", recoveryKey);
     expect(retrieveResult.ok).toBe(true);
     if (retrieveResult.ok) {
       expect(retrieveResult.value).toEqual(fakeKey);

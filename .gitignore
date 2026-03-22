@@ -53,3 +53,9 @@ skills/*
 # Harness required entries
 .env.production
 .harness/*.log
+
+# Temporary directories
+tmp/
+tmp-*/
+.tmp/
+.tmp-*/

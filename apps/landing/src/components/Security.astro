@@ -36,9 +36,9 @@ const agentPerms = [
   { action: "Sign transactions", method: "Session token", who: "Agent" },
   { action: "x402 payments", method: "Session token", who: "Agent" },
   { action: "Guard management", method: "Session token", who: "Agent" },
-  { action: "Export private key", method: "Password + TTY + TOTP", who: "You only" },
-  { action: "View mnemonic", method: "Password + TTY + TOTP", who: "You only" },
-  { action: "TOTP management", method: "Password + TTY", who: "You only" },
+  { action: "Export private key", method: "Recovery key + TTY + TOTP", who: "You only" },
+  { action: "View mnemonic", method: "Recovery key + TTY + TOTP", who: "You only" },
+  { action: "TOTP management", method: "Recovery key + TTY", who: "You only" },
 ];
 ---
 
@@ -66,7 +66,7 @@ const agentPerms = [
       <!-- Right: Agent permission model -->
       <div class="bg-white rounded-xl border border-slate-100 p-6">
         <h3 class="font-semibold text-slate-900 mb-2">Agent permission model</h3>
-        <p class="text-sm text-slate-500 mb-5">Agents get a temporary session token for daily operations. Sensitive actions require your master password, a real terminal, and TOTP verification — no agent can access them.</p>
+        <p class="text-sm text-slate-500 mb-5">Agents get a temporary session token for daily operations. Sensitive actions require your recovery key, a real terminal, and TOTP verification — no agent can access them.</p>
 
         <div class="space-y-2">
           {agentPerms.map((p) => (
@@ -81,7 +81,7 @@ const agentPerms = [
 
         <div class="mt-5 p-4 rounded-lg bg-slate-50">
           <p class="text-xs text-slate-500 leading-relaxed">
-            <span class="font-semibold text-slate-700">How it works:</span> You unlock the vault with your master password and get a session token (expires in 1 hour). The agent uses this token for daily operations. Exporting keys requires your password, a real terminal (TTY), and TOTP code if enabled — agents are automatically blocked.
+            <span class="font-semibold text-slate-700">How it works:</span> You unlock the vault with your recovery key and get a session token (expires in 1 hour). The agent uses this token for daily operations. Exporting keys requires your recovery key, a real terminal (TTY), and TOTP code if enabled — agents are automatically blocked.
           </p>
         </div>
       </div>

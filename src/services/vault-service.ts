@@ -18,11 +18,9 @@ import {
   getVaultDir,
   getConfigPath,
   getKeyFilePath,
-  getMasterKeyPath,
   VAULT_DIR_MODE,
   CONFIG_FILE_MODE,
   KEY_FILE_MODE,
-  MASTER_KEY_FILE_MODE,
   VAULT_VERSION,
 } from "../config/index.ts";
 import type { VaultConfig, EncryptedKeyFile, Result, HardenReport } from "../types/index.ts";
@@ -33,25 +31,13 @@ export function isVaultInitialized(): boolean {
   return exists(getConfigPath());
 }
 
-export interface InitVaultOptions {
-  /** When true, auto-generate password and return as recoveryKey */
-  autoPassword?: boolean;
-  /** When true, persist auto-generated password to master.key (legacy) */
-  persistKey?: boolean;
-}
-
 export interface InitVaultResult {
-  /** Recovery key returned to caller (only when autoPassword, not persisted) */
-  recoveryKey?: string;
-  /** Path to auto-generated master.key (only when persistKey is true) */
-  masterKeyPath?: string;
+  /** Auto-generated recovery key */
+  recoveryKey: string;
 }
 
-/** Initialize the vault with a master password */
-export async function initVault(
-  masterPassword: string,
-  options?: InitVaultOptions
-): Promise<Result<InitVaultResult>> {
+/** Initialize the vault with an auto-generated recovery key */
+export async function initVault(): Promise<Result<InitVaultResult>> {
   if (isVaultInitialized()) {
     return err(new Error("Vault already initialized. Use 'agentwallet export' to access keys."));
   }
@@ -60,24 +46,13 @@ export async function initVault(
   ensureDir(getBaseDir(), VAULT_DIR_MODE);
   ensureDir(getVaultDir(), VAULT_DIR_MODE);
 
-  // Auto-generate password if requested
-  let password = masterPassword;
-  let recoveryKey: string | undefined;
-  let masterKeyPath: string | undefined;
-  if (options?.autoPassword) {
-    const { randomBytes } = await import("node:crypto");
-    password = randomBytes(32).toString("hex");
-    recoveryKey = password;
-    // Only persist to disk if explicitly requested (legacy behavior)
-    if (options.persistKey) {
-      masterKeyPath = getMasterKeyPath();
-      secureWrite(masterKeyPath, password, MASTER_KEY_FILE_MODE);
-    }
-  }
+  // Auto-generate recovery key
+  const { randomBytes } = await import("node:crypto");
+  const recoveryKey = randomBytes(32).toString("hex");
 
   // Generate salt and derive key
   const salt = await generateSalt();
-  const key = await deriveKey(password, salt);
+  const key = await deriveKey(recoveryKey, salt);
 
   // Generate mnemonic and encrypt it
   const mnemonic = generateMnemonic();
@@ -96,7 +71,7 @@ export async function initVault(
 
   await zeroize(key);
   await zeroize(mnemonicBytes);
-  return ok({ recoveryKey, masterKeyPath });
+  return ok({ recoveryKey });
 }
 
 /** Load the vault config */
@@ -141,10 +116,10 @@ export async function storeMnemonic(
   return ok(undefined);
 }
 
-/** Decrypt and return the mnemonic */
-export async function retrieveMnemonic(
+/** Decrypt and return the mnemonic as raw bytes (caller must zeroize) */
+export async function retrieveMnemonicBytes(
   auth: string | Uint8Array
-): Promise<Result<string>> {
+): Promise<Result<Uint8Array>> {
   const configResult = loadConfig();
   if (!configResult.ok) return configResult;
 
@@ -166,6 +141,14 @@ export async function retrieveMnemonic(
 
   if (!(auth instanceof Uint8Array)) await zeroize(key);
 
+  return result;
+}
+
+/** Decrypt and return the mnemonic as a string */
+export async function retrieveMnemonic(
+  auth: string | Uint8Array
+): Promise<Result<string>> {
+  const result = await retrieveMnemonicBytes(auth);
   if (!result.ok) return result;
   const mnemonic = new TextDecoder().decode(result.value);
   await zeroize(result.value);
