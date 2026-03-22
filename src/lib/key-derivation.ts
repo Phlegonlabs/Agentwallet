@@ -66,7 +66,7 @@ export function deriveTONWallet(mnemonic: string, index: number): DerivedWallet 
 export function deriveSolanaWallet(mnemonic: string, index: number): DerivedWallet {
   const seed = mnemonicToSeedSync(mnemonic);
   try {
-    const hdPath = `m/44'/501'/${index}'/0'`;
+    const hdPath = `${SOLANA_HD_PATH}/${index}'/0'`;
     const derived = derivePath(hdPath, Buffer.from(seed).toString("hex"));
     const keypair = Keypair.fromSeed(derived.key);
 

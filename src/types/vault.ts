@@ -1,5 +1,5 @@
 export interface VaultConfig {
-  /** Argon2id salt for master password derivation (base64) */
+  /** Argon2id salt for recovery key derivation (base64) */
   salt: string;
   /** Encrypted mnemonic blob (base64) */
   encryptedMnemonic: string;

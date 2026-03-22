@@ -33,7 +33,14 @@ export async function getAuth(opts: { token?: string }): Promise<string> {
     if (!result.ok) fail(result.error.message);
     return result.value;
   }
-  return password({ message: "Enter master password:" });
+  const envKey = process.env.AGENTWALLET_RECOVERY_KEY;
+  if (envKey) return envKey;
+  const envPw = process.env.AGENTWALLET_PASSWORD;
+  if (envPw) {
+    process.stderr.write("Warning: AGENTWALLET_PASSWORD is deprecated. Use AGENTWALLET_RECOVERY_KEY instead.\n");
+    return envPw;
+  }
+  return password({ message: "Enter recovery key:" });
 }
 
 /** Read JSON from --flag, stdin pipe, or return null */

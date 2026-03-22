@@ -4,19 +4,20 @@ import {
   listWallets,
 } from "../services/index.ts";
 import { exportMnemonic } from "../services/wallet-service.ts";
-import { logAudit } from "../lib/index.ts";
+import { logAudit, zeroize } from "../lib/index.ts";
 
 /** Backup command handler */
 export async function backupAction(): Promise<void> {
-  const masterPassword = await password({
-    message: "Enter master password:",
+  const pw = await password({
+    message: "Enter recovery key:",
   });
 
-  const mnemonicResult = await exportMnemonic(masterPassword);
+  const mnemonicResult = await exportMnemonic(pw);
   if (!mnemonicResult.ok) {
-    process.stderr.write("Wrong password or no wallets to backup.\n");
+    process.stderr.write("Wrong recovery key or no wallets to backup.\n");
     process.exit(1);
   }
+  await zeroize(mnemonicResult.value);
 
   const { readFileSync, writeFileSync } = await import("node:fs");
   const { getBaseDir } = await import("../config/paths.ts");

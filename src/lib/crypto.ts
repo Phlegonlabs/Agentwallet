@@ -22,7 +22,7 @@ const ARGON2_OPSLIMIT = 3; // MODERATE
 const ARGON2_MEMLIMIT = 268435456; // 256MB — MODERATE
 const ARGON2_ALG = 2; // crypto_pwhash_ALG_ARGON2ID13
 
-/** Derive an encryption key from a master password using Argon2id */
+/** Derive an encryption key from a password/recovery key using Argon2id */
 export async function deriveKey(
   password: string,
   salt: Uint8Array

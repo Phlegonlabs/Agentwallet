@@ -7,6 +7,7 @@ import { generateWallet } from "./chain-service.ts";
 import {
   isVaultInitialized,
   retrieveMnemonic,
+  retrieveMnemonicBytes,
   storePrivateKey,
   retrievePrivateKey,
 } from "./vault-service.ts";
@@ -53,7 +54,7 @@ export async function createWallet(
 
     const mnemonicResult = await retrieveMnemonic(derivedKey);
     if (!mnemonicResult.ok) {
-      return err(new Error("Wrong password or corrupted vault."));
+      return err(new Error("Wrong recovery key or corrupted vault."));
     }
     const mnemonic = mnemonicResult.value;
 
@@ -93,11 +94,11 @@ export async function createWallet(
 
 /** Create wallets for all supported chains */
 export async function createAllWallets(
-  masterPassword: string
+  password: string
 ): Promise<Result<Wallet[]>> {
   const wallets: Wallet[] = [];
   for (const chain of SUPPORTED_CHAINS) {
-    const result = await createWallet(chain.id, masterPassword);
+    const result = await createWallet(chain.id, password);
     if (!result.ok) return result;
     wallets.push(result.value);
   }
@@ -110,11 +111,11 @@ export function listWallets(): Wallet[] {
   return store.wallets;
 }
 
-/** Export a wallet's private key */
+/** Export a wallet's private key as raw bytes (caller must zeroize) */
 export async function exportPrivateKey(
   address: string,
-  masterPassword: string
-): Promise<Result<string>> {
+  password: string
+): Promise<Result<{ key: Uint8Array; chainType: string }>> {
   const store = loadWalletStore();
   const wallet = store.wallets.find(
     (w) => w.address.toLowerCase() === address.toLowerCase()
@@ -123,27 +124,17 @@ export async function exportPrivateKey(
     return err(new Error(`Wallet not found: ${address}`));
   }
 
-  const result = await retrievePrivateKey(wallet.id, masterPassword);
+  const result = await retrievePrivateKey(wallet.id, password);
   if (!result.ok) return result;
 
-  let privateKey: string;
-  if (wallet.chainType === "solana") {
-    privateKey = toBase58(result.value);
-  } else if (wallet.chainType === "ton") {
-    privateKey = toHex(result.value);
-  } else {
-    privateKey = `0x${toHex(result.value)}`;
-  }
-
-  await zeroize(result.value);
-  return ok(privateKey);
+  return ok({ key: result.value, chainType: wallet.chainType });
 }
 
-/** Get the mnemonic */
+/** Get the mnemonic as raw bytes (caller must zeroize) */
 export async function exportMnemonic(
-  masterPassword: string
-): Promise<Result<string>> {
-  return retrieveMnemonic(masterPassword);
+  password: string
+): Promise<Result<Uint8Array>> {
+  return retrieveMnemonicBytes(password);
 }
 
 /** Set a label on a wallet */
